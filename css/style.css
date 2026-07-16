@@ -950,10 +950,11 @@ section { padding: 72px 0; }
 }
 .pinned-bar button:hover { color: var(--ink); }
 
-/* owner-only message history — its own full-width section below the chat */
-.history-panel { grid-column: 1 / -1; padding: 22px 24px; }
-.history-panel h3 { font-size: 1.05rem; margin-bottom: 6px; }
+/* owner-only full-width sections below the chat (message history, to-do list) */
+.history-panel, .todo-panel { grid-column: 1 / -1; padding: 22px 24px; }
+.history-panel h3, .todo-panel h3 { font-size: 1.05rem; margin-bottom: 6px; }
 .history-panel #owner-history { margin-top: 12px; }
+.todo-panel .todo-add { margin-top: 12px; max-width: 420px; }
 
 .history-item {
   background: var(--sky-050); border: 1px solid var(--sky-200); border-radius: 12px;
