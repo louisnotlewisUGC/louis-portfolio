@@ -76,19 +76,22 @@ async function boot() {
 // ===========================================================================
 // CUSTOMER VIEW
 // ===========================================================================
+let custConvId = null;
+
 async function initCustomer() {
   customerView.hidden = false;
   const conv = await ensureConversation();
   if (!conv) return;
+  custConvId = conv.id;
 
-  await loadCustomerMessages(conv.id);
+  await refreshCustomer();
   await loadCustomerOrders(conv.id);
 
-  // live updates for this conversation
+  // live updates: re-render on any message change (insert / edit / delete / pin)
   supabase.channel('cust-msgs-' + conv.id)
     .on('postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + conv.id },
-      (payload) => appendMessage('cust-messages', payload.new))
+      { event: '*', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + conv.id },
+      () => refreshCustomer())
     .subscribe();
 
   const form = document.getElementById('cust-composer');
@@ -110,6 +113,14 @@ async function initCustomer() {
   wireEmojiPicker('cust-emoji-btn', 'cust-emoji-pop', 'cust-input');
 }
 
+async function refreshCustomer() {
+  const { data } = await supabase
+    .from('messages').select('*').eq('conversation_id', custConvId).order('created_at');
+  // RLS already hides deleted from customers; filter again to be safe.
+  const msgs = (data || []).filter((m) => !m.deleted_at);
+  renderMessages('cust-messages', msgs, custConvId);
+}
+
 async function ensureConversation() {
   const { data: existing } = await supabase
     .from('conversations').select('*').eq('customer_id', me.id).maybeSingle();
@@ -118,14 +129,6 @@ async function ensureConversation() {
     .from('conversations').insert({ customer_id: me.id }).select().single();
   if (error) { alert(error.message); return null; }
   return data;
-}
-
-async function loadCustomerMessages(convId) {
-  const { data } = await supabase
-    .from('messages').select('*').eq('conversation_id', convId).order('created_at');
-  const box = document.getElementById('cust-messages');
-  box.innerHTML = '';
-  (data || []).forEach((m) => appendMessage('cust-messages', m));
 }
 
 async function loadCustomerOrders(convId) {
@@ -158,14 +161,49 @@ function orderCardReadOnly(o) {
 // ===========================================================================
 // SHARED message rendering
 // ===========================================================================
-function appendMessage(boxId, m) {
+
+// Render a whole list of (non-deleted) messages into a box, with a pinned strip
+// at the top. convId lets the message actions know where they belong.
+function renderMessages(boxId, msgs, convId) {
   const box = document.getElementById(boxId);
   if (!box) return;
+  box.innerHTML = '';
+
+  const pinned = msgs.filter((m) => m.pinned);
+  if (pinned.length) box.appendChild(buildPinnedBar(pinned, box));
+
+  msgs.forEach((m) => box.appendChild(buildMessageRow(m, convId)));
+  box.scrollTop = box.scrollHeight;
+}
+
+function buildPinnedBar(pinned, box) {
+  const bar = document.createElement('div');
+  bar.className = 'pinned-bar';
+  bar.innerHTML = '<span class="pinned-bar-title">📌 Pinned</span>';
+  pinned.forEach((m) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = renderContent(m.content || (m.image_url ? '📷 image' : (m.file_name || 'file')));
+    b.addEventListener('click', () => {
+      const target = box.querySelector('[data-mid="' + m.id + '"]');
+      if (target) {
+        target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        target.querySelector('.msg-bubble').classList.add('msg-flash');
+        setTimeout(() => target.querySelector('.msg-bubble').classList.remove('msg-flash'), 1400);
+      }
+    });
+    bar.appendChild(b);
+  });
+  return bar;
+}
+
+function buildMessageRow(m, convId) {
   const mine = m.sender_id === me.id;
   const sender = profileCache[m.sender_id];
   const name = mine ? 'You' : (sender ? sender.username : 'Them');
   const row = document.createElement('div');
   row.className = 'msg-row ' + (mine ? 'mine' : 'theirs');
+  row.dataset.mid = m.id;
 
   let body = '';
   if (m.content) body += '<span class="msg-text">' + renderContent(m.content) + '</span>';
@@ -180,14 +218,83 @@ function appendMessage(boxId, m) {
       '<span>' + esc(fname) + '</span></a>';
   }
 
-  row.innerHTML =
-    '<div class="msg-bubble">' +
-      '<span class="msg-name">' + esc(name) + '</span>' +
-      body +
-      '<span class="msg-time">' + fmtTime(m.created_at) + '</span>' +
+  const editedTag = m.edited_at ? '<span class="msg-edited">(edited)</span>' : '';
+  const pinTag = m.pinned ? '<span class="msg-pin-tag">📌 pinned</span> ' : '';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble' + (m.pinned ? ' pinned' : '');
+  bubble.innerHTML =
+    '<span class="msg-name">' + esc(name) + '</span>' +
+    body +
+    '<span class="msg-time">' + pinTag + fmtTime(m.created_at) + editedTag + '</span>';
+
+  bubble.appendChild(buildMsgActions(m, convId, bubble));
+  row.appendChild(bubble);
+  return row;
+}
+
+// The little hover toolbar on each message.
+function buildMsgActions(m, convId, bubble) {
+  const bar = document.createElement('div');
+  bar.className = 'msg-actions';
+  const mine = m.sender_id === me.id;
+  const canDelete = mine || me.role === 'owner';
+  const canEdit = mine && m.content; // only text you wrote
+
+  const add = (label, title, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.title = title;
+    b.addEventListener('click', fn);
+    bar.appendChild(b);
+  };
+
+  // Both participants may pin.
+  add(m.pinned ? '📌' : '📍', m.pinned ? 'Unpin' : 'Pin', () => togglePinMessage(m));
+  if (canEdit) add('✎', 'Edit', () => startEditMessage(m, bubble, convId));
+  if (canDelete) add('🗑', 'Delete', () => deleteMessage(m));
+
+  return bar;
+}
+
+async function togglePinMessage(m) {
+  const { error } = await supabase.from('messages').update({ pinned: !m.pinned }).eq('id', m.id);
+  if (error) alert(error.message);
+}
+
+async function deleteMessage(m) {
+  if (!confirm('Delete this message? It will be hidden from the chat.')) return;
+  const { error } = await supabase.from('messages')
+    .update({ deleted_at: new Date().toISOString() }).eq('id', m.id);
+  if (error) alert(error.message);
+}
+
+function startEditMessage(m, bubble, convId) {
+  const editor = document.createElement('div');
+  editor.className = 'msg-edit';
+  editor.innerHTML =
+    '<textarea maxlength="1000"></textarea>' +
+    '<div class="msg-edit-actions">' +
+      '<button class="btn btn-primary btn-sm" type="button">Save</button>' +
+      '<button class="link-btn" type="button">Cancel</button>' +
     '</div>';
-  box.appendChild(row);
-  box.scrollTop = box.scrollHeight;
+  const ta = editor.querySelector('textarea');
+  ta.value = m.content || '';
+  const prev = bubble.innerHTML;
+  bubble.innerHTML = '';
+  bubble.appendChild(editor);
+  ta.focus();
+
+  editor.querySelector('.btn-primary').addEventListener('click', async () => {
+    const text = ta.value.trim();
+    if (!text) return;
+    if (text === m.content) { bubble.innerHTML = prev; return; }
+    const { error } = await supabase.from('messages').update({ content: text }).eq('id', m.id);
+    if (error) { alert(error.message); bubble.innerHTML = prev; }
+    // success → realtime refresh redraws the row
+  });
+  editor.querySelector('.link-btn').addEventListener('click', () => { bubble.innerHTML = prev; });
 }
 
 // Upload any file (up to 30 MB) and post it as a message. Images preview inline
@@ -459,24 +566,64 @@ async function openConversation(conv) {
   document.getElementById('owner-composer').hidden = false;
   document.getElementById('owner-side').hidden = false;
 
-  // messages
-  const { data } = await supabase
-    .from('messages').select('*').eq('conversation_id', conv.id).order('created_at');
-  const box = document.getElementById('owner-messages');
-  box.innerHTML = '';
-  (data || []).forEach((m) => appendMessage('owner-messages', m));
+  await refreshOwner();
 
-  // realtime for this conversation
+  // realtime: re-render on any message change (insert / edit / delete / pin)
   if (activeMsgChannel) supabase.removeChannel(activeMsgChannel);
   activeMsgChannel = supabase.channel('owner-msgs-' + conv.id)
     .on('postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + conv.id },
-      (payload) => { if (activeConv && activeConv.id === conv.id) appendMessage('owner-messages', payload.new); })
+      { event: '*', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + conv.id },
+      () => { if (activeConv && activeConv.id === conv.id) refreshOwner(); })
     .subscribe();
 
   await loadOwnerOrders(conv.id);
   // reflect active highlight
   document.querySelectorAll('.conv-item').forEach((el) => el.classList.remove('is-active'));
+}
+
+// Reload the active conversation: visible messages into the chat, and
+// soft-deleted ones into the owner-only "Message history" section.
+async function refreshOwner() {
+  if (!activeConv) return;
+  const { data } = await supabase
+    .from('messages').select('*').eq('conversation_id', activeConv.id).order('created_at');
+  const all = data || [];
+  renderMessages('owner-messages', all.filter((m) => !m.deleted_at), activeConv.id);
+  renderHistory(all.filter((m) => m.deleted_at));
+}
+
+function renderHistory(deleted) {
+  const wrap = document.getElementById('owner-history');
+  const empty = document.getElementById('owner-history-empty');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  empty.hidden = deleted.length > 0;
+
+  // newest deletion first
+  deleted.sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at));
+  deleted.forEach((m) => {
+    const sender = profileCache[m.sender_id];
+    const who = m.sender_id === me.id ? 'You' : (sender ? sender.username : 'User');
+    const remover = m.deleted_by === me.id ? 'you' : (m.deleted_by === m.sender_id ? who.toLowerCase() : 'owner');
+    const preview = m.content
+      ? renderContent(m.content)
+      : (m.image_url ? '📷 image' : (m.file_name ? '📎 ' + esc(m.file_name) : '(empty)'));
+
+    const item = document.createElement('div');
+    item.className = 'history-item restorable';
+    item.innerHTML =
+      '<div class="history-text"><strong>' + esc(who) + ':</strong> ' + preview + '</div>' +
+      '<div class="history-meta">deleted by ' + esc(remover) + ' · ' + fmtTime(m.deleted_at) + '</div>' +
+      '<button class="btn btn-soft btn-sm history-restore" type="button">Restore</button>';
+    item.querySelector('.history-restore').addEventListener('click', () => restoreMessage(m));
+    wrap.appendChild(item);
+  });
+}
+
+async function restoreMessage(m) {
+  const { error } = await supabase.from('messages')
+    .update({ deleted_at: null }).eq('id', m.id);
+  if (error) alert(error.message);
 }
 
 async function togglePin(conv) {

@@ -85,6 +85,30 @@ A public reviews wall where signed-in customers leave a 1–5 star rating + comm
 - **ACTION REQUIRED:** re-run `supabase/schema.sql` so the new columns, buckets, and
   `emojis` table exist. Also check **Supabase → Settings → Storage → "Upload file
   size limit"** is ≥ 30 MB (free-tier default is 50 MB, so usually fine).
+- **Emoji seed:** `supabase/seed-emojis.sql` populates the picker with ~50 classic
+  Twitter/Twemoji emojis (Discord-style, served from jsDelivr CDN — no storage used).
+  Run it in the SQL editor; idempotent.
+
+## NEW: Edit / delete / pin messages + owner message history (added 2026-07-16)
+- **Edit** your own text messages (inline editor; shows "(edited)").
+- **Delete** — soft delete. Each person deletes their own; the **owner can delete
+  anyone's**. Deleted messages vanish from chat but are kept in an owner-only
+  **"Message history"** panel section (with who deleted + when) and can be **Restored**.
+- **Pin** — either participant can pin/unpin a message. Pinned messages get a peach
+  highlight, a "📌 pinned" tag, and appear in a "📌 Pinned" strip at the top of the
+  chat (click a pinned item to jump to it).
+- Actions appear as a small hover toolbar on each message bubble.
+- Realtime switched from INSERT-only to `event:'*'` with a full re-render, so edits/
+  deletes/pins now sync live between customer and owner.
+- Schema: new `messages` columns `edited_at`, `deleted_at`, `deleted_by`, `pinned`;
+  `messages_select` updated to hide soft-deleted from customers; new `messages_update`
+  RLS policy + `guard_message_update` trigger enforcing per-person rules.
+- **Layout fix:** the owner 3-column view squished the chat + clipped the Send button
+  at medium widths. Now the Orders panel drops to full width below the chat ≤1080px,
+  everything stacks ≤760px, and the composer is shrink-safe.
+- Files: `js/chat.js`, `chat.html`, `css/style.css`, `supabase/schema.sql`.
+- **ACTION REQUIRED:** re-run `supabase/schema.sql` so the new message columns,
+  updated policies, and guard trigger exist.
 
 ## Resuming on the new machine
 1. Install Claude Code, sign in with the new account.

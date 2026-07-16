@@ -805,7 +805,7 @@ section { padding: 72px 0; }
 .chat-signed-out { max-width: 460px; margin: 40px auto; padding: 40px 32px; text-align: center; }
 .chat-signed-out .btn { margin-top: 18px; }
 
-.chat-window { display: flex; flex-direction: column; min-height: 520px; padding: 0; overflow: hidden; }
+.chat-window { display: flex; flex-direction: column; min-height: 520px; min-width: 0; padding: 0; overflow: hidden; }
 .chat-window-head {
   display: flex; align-items: center; gap: 12px;
   padding: 16px 20px; border-bottom: 1px solid var(--sky-100);
@@ -836,10 +836,11 @@ section { padding: 72px 0; }
 
 .chat-composer { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--sky-100); position: relative; }
 .chat-composer input[type="text"] {
-  flex: 1; font-family: var(--font-body); font-size: 1rem;
+  flex: 1; min-width: 0; font-family: var(--font-body); font-size: 1rem;
   border: 1.5px solid var(--sky-200); border-radius: 999px;
   padding: 11px 18px; background: var(--sky-050);
 }
+.chat-composer .btn { flex-shrink: 0; }
 .chat-composer input[type="text"]:focus { outline: none; border-color: var(--sky-400); background: #fff; }
 
 .chat-attach {
@@ -906,6 +907,60 @@ section { padding: 72px 0; }
 .emoji-chip img { height: 22px; width: 22px; object-fit: contain; }
 .emoji-chip button { background: none; border: none; cursor: pointer; color: var(--peach-deep); font-size: 0.9rem; line-height: 1; }
 .emoji-chip button:hover { color: var(--peach-deep); }
+
+/* ---- Message actions (edit / delete / pin) ---- */
+.msg-bubble { position: relative; }
+.msg-actions {
+  position: absolute; top: -12px; right: 8px; display: none; gap: 2px;
+  background: #fff; border: 1px solid var(--sky-200); border-radius: 999px;
+  padding: 2px 4px; box-shadow: var(--shadow-soft); z-index: 5;
+}
+.msg-row.mine .msg-actions { right: auto; left: 8px; }
+.msg-bubble:hover .msg-actions { display: flex; }
+.msg-actions button {
+  background: none; border: none; cursor: pointer; font-size: 0.82rem;
+  line-height: 1; padding: 3px 5px; border-radius: 999px; color: var(--ink-soft);
+}
+.msg-actions button:hover { background: var(--sky-100); color: var(--ink); }
+
+.msg-edited { font-size: 0.66rem; color: var(--ink-soft); opacity: 0.8; margin-left: 4px; }
+.msg-row.mine .msg-edited { color: var(--ink); opacity: 0.6; }
+
+.msg-bubble.pinned { box-shadow: 0 0 0 2px var(--peach) inset, var(--shadow-soft); }
+.msg-pin-tag { font-size: 0.66rem; color: var(--peach-deep); font-weight: 700; }
+
+/* inline edit box */
+.msg-edit { display: flex; flex-direction: column; gap: 6px; }
+.msg-edit textarea {
+  font-family: var(--font-body); font-size: 0.95rem; border: 1.5px solid var(--sky-300);
+  border-radius: 10px; padding: 6px 10px; background: #fff; resize: vertical; min-width: 180px;
+}
+.msg-edit-actions { display: flex; gap: 8px; }
+
+/* pinned strip at the top of a chat window */
+.pinned-bar {
+  background: var(--cream); border-bottom: 1px solid var(--sky-100);
+  padding: 8px 14px; display: flex; flex-direction: column; gap: 4px;
+}
+.pinned-bar-title { font-size: 0.72rem; font-weight: 700; color: var(--peach-deep); }
+.pinned-bar button {
+  background: none; border: none; text-align: left; cursor: pointer; width: 100%;
+  font-family: var(--font-body); font-size: 0.82rem; color: var(--ink-soft);
+  padding: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pinned-bar button:hover { color: var(--ink); }
+
+/* owner-only message history (deleted messages) */
+.history-item {
+  background: var(--sky-050); border: 1px solid var(--sky-200); border-radius: 12px;
+  padding: 10px 12px; margin-bottom: 8px; font-size: 0.84rem;
+}
+.history-item .history-meta { color: var(--ink-soft); font-size: 0.72rem; margin-top: 4px; }
+.history-item .history-text { color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+.history-item.restorable { display: flex; flex-direction: column; gap: 6px; }
+.history-restore { align-self: flex-start; }
+.msg-flash { animation: msgFlash 1.4s ease; }
+@keyframes msgFlash { 0%, 40% { background: var(--peach-glow); } 100% { background: transparent; } }
 
 .autoreply-box {
   width: 100%; font-family: var(--font-body); font-size: 0.9rem;
@@ -983,8 +1038,15 @@ section { padding: 72px 0; }
 .todo-row.done span { text-decoration: line-through; color: var(--ink-soft); }
 .todo-del { font-size: 0.9rem; }
 
-/* ---- Chat responsive ---- */
-@media (max-width: 900px) {
+/* ---- Chat responsive ----
+   The 3-column owner view needs a wide screen. Below ~1080px the Orders/side
+   panel drops to full width UNDER the chat so the chat column keeps its room;
+   below ~760px everything stacks into one column. */
+@media (max-width: 1080px) {
+  .chat-owner { grid-template-columns: 240px minmax(0, 1fr); }
+  .chat-owner .order-panel { grid-column: 1 / -1; max-height: none; }
+}
+@media (max-width: 760px) {
   .chat-owner { grid-template-columns: 1fr; }
   .chat-customer { grid-template-columns: 1fr; }
   .conv-list, .order-panel { max-height: none; }

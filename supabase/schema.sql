@@ -554,6 +554,112 @@ create policy chat_emojis_delete on storage.objects
   for delete to authenticated
   using (bucket_id = 'chat-emojis' and public.is_owner());
 
+-- ---------------------------------------------------------------------------
+-- Message edit / delete / pin.
+--   * edited_at  — stamped when a message's text is edited.
+--   * deleted_at — soft delete. Hidden from chat but kept for the owner's
+--                  "Message history". deleted_by records who removed it.
+--   * pinned     — either participant may pin a message.
+-- Rules (enforced by the guard trigger below): you may edit only your OWN
+-- message text; you may delete your OWN messages, and the owner may delete any;
+-- either participant may pin. Attachments and identity fields can't be changed.
+-- ---------------------------------------------------------------------------
+
+alter table public.messages add column if not exists edited_at  timestamptz;
+alter table public.messages add column if not exists deleted_at timestamptz;
+alter table public.messages add column if not exists deleted_by uuid references public.profiles(id);
+alter table public.messages add column if not exists pinned     boolean not null default false;
+
+-- Customers no longer see soft-deleted messages; the owner still sees everything.
+drop policy if exists messages_select on public.messages;
+create policy messages_select on public.messages
+  for select to authenticated
+  using (
+    public.is_owner()
+    or (
+      deleted_at is null
+      and exists (
+        select 1 from public.conversations c
+        where c.id = messages.conversation_id and c.customer_id = auth.uid()
+      )
+    )
+  );
+
+-- A participant (or the owner) may update messages in their conversation; the
+-- guard trigger decides which columns each role is actually allowed to change.
+drop policy if exists messages_update on public.messages;
+create policy messages_update on public.messages
+  for update to authenticated
+  using (
+    public.is_owner()
+    or exists (
+      select 1 from public.conversations c
+      where c.id = messages.conversation_id and c.customer_id = auth.uid()
+    )
+  )
+  with check (
+    public.is_owner()
+    or exists (
+      select 1 from public.conversations c
+      where c.id = messages.conversation_id and c.customer_id = auth.uid()
+    )
+  );
+
+create or replace function public.guard_message_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  is_own boolean := (old.sender_id = auth.uid());
+  owner  boolean := public.is_owner();
+begin
+  -- Trusted admin (SQL editor / service role): stamp edits, allow anything.
+  if auth.uid() is null then
+    if new.content is distinct from old.content then new.edited_at := now(); end if;
+    return new;
+  end if;
+
+  -- Identity / structural fields are immutable from the app.
+  if new.id <> old.id
+     or new.conversation_id <> old.conversation_id
+     or new.sender_id <> old.sender_id
+     or new.created_at <> old.created_at then
+    raise exception 'That field cannot be changed.';
+  end if;
+
+  -- Editing text: only your own message.
+  if new.content is distinct from old.content then
+    if not is_own then raise exception 'You can only edit your own messages.'; end if;
+    new.edited_at := now();
+  end if;
+
+  -- Attachments can't be edited.
+  if new.image_url is distinct from old.image_url
+     or new.file_url is distinct from old.file_url
+     or new.file_name is distinct from old.file_name then
+    raise exception 'Attachments cannot be changed.';
+  end if;
+
+  -- Soft delete toggle: your own message, or the owner may remove anyone's.
+  if (old.deleted_at is null) <> (new.deleted_at is null) then
+    if not (is_own or owner) then
+      raise exception 'You can only delete your own messages.';
+    end if;
+    new.deleted_by := case when new.deleted_at is not null then auth.uid() else null end;
+  end if;
+
+  -- Pinning is allowed for any participant (RLS already limited who gets here).
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_message_update_trg on public.messages;
+create trigger guard_message_update_trg
+  before update on public.messages
+  for each row execute function public.guard_message_update();
+
 -- ============================================================================
 -- After running this, sign up on your website, then run ONE line to make
 -- yourself the owner (replace the email with the one you signed up with):
