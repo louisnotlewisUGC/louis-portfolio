@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio · Louis — UGC Hair Creator</title>
+  <meta name="description" content="Past works and advanced hair designs by Louis, verified Roblox UGC hair creator.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Drifting sky decor -->
+  <div class="sky" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+    <div class="cloud cloud-3"></div>
+    <div class="spark spark-1"></div>
+    <div class="spark spark-2"></div>
+    <div class="spark spark-3"></div>
+    <div class="spark spark-4"></div>
+  </div>
+
+  <header class="site-header">
+    <nav class="nav-pill">
+      <a class="brand" href="index.html"><span class="dot"></span>Louis</a>
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
+      <ul class="nav-links">
+        <li><a href="index.html">← Back home</a></li>
+        <li><a href="index.html#pricing">Pricing</a></li>
+        <li><a class="nav-cta" href="index.html#contact">Commission me</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="page">
+
+    <section class="portfolio-hero">
+      <h1>My Portfolio</h1>
+      <p>A collection of my past works and advanced hair designs. Click any piece to take a closer look.</p>
+    </section>
+
+    <!-- ================= GALLERY =================
+         Pieces are managed in data/portfolio.json (edited via the /admin
+         panel). js/main.js fetches that file and renders the cards here. -->
+    <section class="gallery" id="gallery" style="padding-top: 0;">
+      <p class="gallery-empty" id="gallery-empty">Loading portfolio…</p>
+    </section>
+
+    <section style="padding-top: 0;">
+      <div class="contact-card reveal">
+        <h2>Like what you see?</h2>
+        <p>Commission your own custom hair — check the pricing tiers and send me a message.</p>
+        <div class="contact-links">
+          <a class="btn btn-primary" href="index.html#pricing">View pricing</a>
+          <a class="btn btn-soft" href="index.html#contact">Contact me</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    © 2026 Louis · Roblox UGC Hair Creator
+    <br>
+    <a class="owner-login" href="admin/">Owner login</a>
+  </footer>
+
+  <!-- Lightbox -->
+  <div class="lightbox" role="dialog" aria-modal="true" aria-label="Enlarged artwork">
+    <button class="lightbox-close" aria-label="Close">✕</button>
+    <figure>
+      <img src="" alt="">
+      <figcaption></figcaption>
+    </figure>
+  </div>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

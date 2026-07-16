@@ -1,0 +1,36 @@
+# Sveltia / Decap CMS configuration
+# ---------------------------------
+# IMPORTANT: change `repo` below to your own GitHub "username/repository"
+# once you've created and pushed the repo (see SETUP.md).
+
+backend:
+  name: github
+  repo: YOUR-GITHUB-USERNAME/louis-portfolio   # <-- change this
+  branch: main
+
+# Where uploaded images are stored in the repo, and how the site references them.
+media_folder: "assets/portfolio"
+public_folder: "assets/portfolio"
+
+collections:
+  - name: portfolio
+    label: "Portfolio"
+    files:
+      - name: pieces
+        label: "Gallery pieces"
+        file: "data/portfolio.json"
+        description: "Add, remove, or reorder the hairs shown on your portfolio page."
+        fields:
+          - label: "Pieces"
+            name: "pieces"
+            widget: "list"
+            label_singular: "Piece"
+            summary: "{{fields.title}} — {{fields.detail}} ({{fields.year}})"
+            fields:
+              - { label: "Image", name: "image", widget: "image" }
+              - { label: "Title / hair name", name: "title", widget: "string" }
+              - label: "Detail level"
+                name: "detail"
+                widget: "select"
+                options: ["Simple", "Medium detail", "Detailed & complex", "Advanced hair"]
+              - { label: "Year", name: "year", widget: "string", required: false }

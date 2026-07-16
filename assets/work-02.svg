@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd9c2"/>
+      <stop offset="1" stop-color="#eaf6ff"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff9b73"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.85"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#bg)"/>
+  <circle cx="330" cy="70" r="26" fill="#ffffff" opacity="0.35"/>
+  <circle cx="70" cy="330" r="18" fill="#ffffff" opacity="0.25"/>
+  <path fill="url(#hair)" d="M200 62 C138 62 108 112 108 172 C108 242 88 292 68 332 C118 317 140 282 150 250 C156 302 146 332 130 358 C182 342 196 302 200 262 C204 302 218 342 270 358 C254 332 244 302 250 250 C260 282 282 317 332 332 C312 292 292 242 292 172 C292 112 262 62 200 62 Z"/>
+  <path fill="#ffffff" opacity="0.9" d="M200 30 l6 14 14 6 -14 6 -6 14 -6 -14 -14 -6 14 -6 z"/>
+  <text x="200" y="388" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#ffffff" opacity="0.9">your hair render</text>
+</svg>
