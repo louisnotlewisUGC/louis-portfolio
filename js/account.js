@@ -137,6 +137,10 @@ async function enterProfile() {
   if (currentProfile.avatar_url) {
     document.getElementById('profile-avatar').src = currentProfile.avatar_url;
   }
+  if (currentProfile.banner_url) {
+    document.getElementById('profile-banner').style.backgroundImage =
+      'url("' + currentProfile.banner_url + '")';
+  }
 
   // Account info (read-only)
   const session = await getSession();
@@ -156,12 +160,53 @@ document.getElementById('save-profile').addEventListener('click', async () => {
   const description = document.getElementById('description-input').value.trim() || null;
   if (username.length < 2) return setMsg('profile-msg', 'Please enter a display name.');
   setMsg('profile-msg', 'Saving…', 'info');
-  const { error } = await supabase
+  let { error } = await supabase
     .from('profiles')
     .update({ username, description })
     .eq('id', currentProfile.id);
+
+  // If the description column hasn't been added to the database yet, still
+  // save the name so the button never just "does nothing" for people.
+  if (error && /description/i.test(error.message)) {
+    ({ error } = await supabase.from('profiles').update({ username }).eq('id', currentProfile.id));
+    if (!error) {
+      currentProfile.username = username;
+      return setMsg('profile-msg',
+        'Name saved — the bio needs the newest schema.sql run in Supabase.', 'error');
+    }
+  }
   if (!error) { currentProfile.username = username; currentProfile.description = description; }
   setMsg('profile-msg', error ? error.message : 'Saved!', error ? 'error' : 'success');
+});
+
+// ---- Banner upload ---------------------------------------------------------
+document.getElementById('banner-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) return setMsg('profile-msg', 'Banner must be under 5 MB.');
+
+  setMsg('profile-msg', 'Uploading banner…', 'info');
+  const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+  const path = `${currentProfile.id}/banner.${ext}`;
+
+  const { error: upErr } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, cacheControl: '3600' });
+  if (upErr) return setMsg('profile-msg', upErr.message);
+
+  const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
+  const url = pub.publicUrl + '?v=' + Date.now(); // bust cache
+  const { error: updErr } = await supabase
+    .from('profiles').update({ banner_url: url }).eq('id', currentProfile.id);
+  if (updErr) {
+    return setMsg('profile-msg', /banner_url/i.test(updErr.message)
+      ? 'Banner needs the newest schema.sql run in Supabase first.'
+      : updErr.message);
+  }
+
+  document.getElementById('profile-banner').style.backgroundImage = 'url("' + url + '")';
+  currentProfile.banner_url = url;
+  setMsg('profile-msg', 'Banner updated!', 'success');
 });
 
 // ---- Change password ------------------------------------------------------

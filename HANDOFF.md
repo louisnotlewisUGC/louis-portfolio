@@ -128,10 +128,29 @@ A public reviews wall where signed-in customers leave a 1–5 star rating + comm
   (reactions/upload/profile) was blocked by a transient tool outage — worth a live
   once-over after the schema runs.
 
-## STILL TODO (asked but not built)
-- **Mini/floating chat bar** the user can hide/unhide — deferred pending a decision
-  on format (floating popup vs. collapsible side panel). Needs clarification before
-  building; it's the heaviest of the batch.
+## NEW: polish batch (added 2026-07-16, second pass)
+- **Scroll fix:** re-renders (reacting, editing, pinning, emoji insert) no longer
+  yank the chat to the bottom — scroll position is preserved unless you were
+  already at the bottom. Emoji insert uses `focus({preventScroll})`.
+- **Text + image together:** whatever is typed in the composer when you attach
+  files goes out as the caption in the same message.
+- **Grouped images (WhatsApp style):** multiple pics picked together are ONE
+  bubble via new `messages.image_urls text[]`; caption renders under the grid.
+  Legacy single `image_url` messages still render.
+- **Profile cards:** click a name in chat (or the customer header) → Discord-style
+  card with **banner** (`profiles.banner_url`), avatar, role, **description**.
+  Banner upload added to account page (avatars bucket, `<id>/banner.ext`).
+- **Discord-style icons:** hover toolbar now uses clean SVG icons (smiley-plus
+  react, pin, pencil, trash) instead of emoji glyphs.
+- **DM search:** search box above the owner conversations list, filters by name.
+- **Custom emoji hide/unhide:** Hide/Show button collapses the emoji manager
+  (persists via localStorage).
+- **Advanced-settings resilience:** if `profiles.description`/`banner_url` don't
+  exist yet, saving still saves the name and tells you to run schema.sql (the
+  "doesn't work for others" bug was the un-run schema).
+- **Mini chat bar: ABANDONED** per the user — do not build it.
+- **ACTION REQUIRED:** re-run `supabase/schema.sql` (adds `profiles.banner_url`,
+  `messages.image_urls`, updated messages content constraint + guard trigger).
 
 ## Resuming on the new machine
 1. Install Claude Code, sign in with the new account.

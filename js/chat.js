@@ -36,6 +36,34 @@ async function loadEmojis() {
   emojiMap = {};
   emojiList.forEach((e) => { emojiMap[e.name] = e.image_url; });
 }
+
+// ---------------------------------------------------------------------------
+// Profile card: click someone's name/avatar in chat to see their banner,
+// avatar, and description.
+// ---------------------------------------------------------------------------
+function openProfileCard(p) {
+  if (!p) return;
+  const banner = document.getElementById('pc-banner');
+  banner.style.backgroundImage = p.banner_url ? 'url("' + p.banner_url + '")' : '';
+  document.getElementById('pc-avatar').src = p.avatar_url || 'assets/avatar.svg';
+  document.getElementById('pc-name').textContent = p.username || 'User';
+  document.getElementById('pc-role').textContent =
+    p.role === 'owner' ? '✓ UGC Hair Creator · Owner' : 'Customer';
+  document.getElementById('pc-desc').textContent =
+    p.description || 'No description yet.';
+  document.getElementById('profile-modal').hidden = false;
+}
+
+function wireProfileModal() {
+  const modal = document.getElementById('profile-modal');
+  if (!modal) return;
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.hidden = true; });
+  document.getElementById('profile-card-close')
+    .addEventListener('click', () => { modal.hidden = true; });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') modal.hidden = true;
+  });
+}
 function fmtTime(ts) {
   const d = new Date(ts);
   return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -68,6 +96,7 @@ async function boot() {
   slot.innerHTML = '<a class="nav-cta" href="account.html">' + esc(me.username) + '</a>';
 
   await loadEmojis();
+  wireProfileModal();
 
   if (me.role === 'owner') initOwner();
   else initCustomer();
@@ -121,6 +150,8 @@ async function refreshCustomer() {
     .from('messages').select('*').eq('conversation_id', custConvId).order('created_at');
   // RLS already hides deleted from customers; filter again to be safe.
   const msgs = (data || []).filter((m) => !m.deleted_at);
+  // cache sender profiles (Louis's included) so names + profile cards work
+  await cacheProfiles(msgs.map((m) => m.sender_id));
   await attachReactions(msgs);
   renderMessages('cust-messages', msgs, custConvId);
 }
@@ -171,6 +202,12 @@ function orderCardReadOnly(o) {
 function renderMessages(boxId, msgs, convId) {
   const box = document.getElementById(boxId);
   if (!box) return;
+  // Keep the reader where they are: only auto-scroll to the newest message if
+  // they were already at (or near) the bottom. Reacting to / editing an old
+  // message must not yank the view down.
+  const firstRender = !box.dataset.rendered;
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  const prevScroll = box.scrollTop;
   box.innerHTML = '';
 
   const pinned = msgs.filter((m) => m.pinned);
@@ -178,7 +215,8 @@ function renderMessages(boxId, msgs, convId) {
 
   msgs.forEach((m) => box.appendChild(buildMessageRow(m, convId)));
   renderPending(box, boxId);
-  box.scrollTop = box.scrollHeight;
+  box.dataset.rendered = '1';
+  box.scrollTop = (firstRender || nearBottom) ? box.scrollHeight : prevScroll;
 }
 
 function buildPinnedBar(pinned, box) {
@@ -188,7 +226,9 @@ function buildPinnedBar(pinned, box) {
   pinned.forEach((m) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.innerHTML = renderContent(m.content || (m.image_url ? '📷 image' : (m.file_name || 'file')));
+    const imgCount = (m.image_urls || []).length || (m.image_url ? 1 : 0);
+    b.innerHTML = renderContent(m.content ||
+      (imgCount ? '📷 ' + (imgCount === 1 ? 'image' : imgCount + ' images') : (m.file_name || 'file')));
     b.addEventListener('click', () => {
       const target = box.querySelector('[data-mid="' + m.id + '"]');
       if (target) {
@@ -210,18 +250,27 @@ function buildMessageRow(m, convId) {
   row.className = 'msg-row ' + (mine ? 'mine' : 'theirs');
   row.dataset.mid = m.id;
 
-  let body = '';
-  if (m.content) body += '<span class="msg-text">' + renderContent(m.content) + '</span>';
-  if (m.image_url) {
-    body += '<a class="msg-image-link" href="' + esc(m.image_url) + '" target="_blank" rel="noopener">' +
-      '<img class="msg-image" src="' + esc(m.image_url) + '" alt="shared image"></a>';
+  // media first, caption text underneath (WhatsApp style)
+  let media = '';
+  const gallery = (m.image_urls && m.image_urls.length)
+    ? m.image_urls
+    : (m.image_url ? [m.image_url] : []);
+  if (gallery.length) {
+    const cls = gallery.length === 1 ? 'g1' : gallery.length === 2 ? 'g2' : 'gmulti';
+    media += '<div class="msg-gallery ' + cls + '">' +
+      gallery.map((u) =>
+        '<a class="msg-image-link" href="' + esc(u) + '" target="_blank" rel="noopener">' +
+        '<img class="msg-image" src="' + esc(u) + '" alt="shared image"></a>').join('') +
+      '</div>';
   }
   if (m.file_url) {
     const fname = m.file_name || 'file';
-    body += '<a class="msg-file" href="' + esc(m.file_url) + '" download="' + esc(fname) + '" target="_blank" rel="noopener">' +
+    media += '<a class="msg-file" href="' + esc(m.file_url) + '" download="' + esc(fname) + '" target="_blank" rel="noopener">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>' +
       '<span>' + esc(fname) + '</span></a>';
   }
+  const text = m.content ? '<span class="msg-text">' + renderContent(m.content) + '</span>' : '';
+  const body = media + text;
 
   const editedTag = m.edited_at ? '<span class="msg-edited">(edited)</span>' : '';
   const pinTag = m.pinned ? '<span class="msg-pin-tag">📌 pinned</span> ' : '';
@@ -232,6 +281,12 @@ function buildMessageRow(m, convId) {
     '<span class="msg-name">' + esc(name) + '</span>' +
     body +
     '<span class="msg-time">' + pinTag + fmtTime(m.created_at) + editedTag + '</span>';
+
+  // click the sender's name to open their profile card
+  const nameEl = bubble.querySelector('.msg-name');
+  nameEl.classList.add('clickable');
+  nameEl.addEventListener('click', () =>
+    openProfileCard(mine ? me : profileCache[m.sender_id]));
 
   if (m.reactions && m.reactions.length) bubble.appendChild(buildReactions(m));
   bubble.appendChild(buildMsgActions(m, convId, bubble));
@@ -253,6 +308,14 @@ function buildReactions(m) {
   return wrap;
 }
 
+// Discord-style hover toolbar icons (clean strokes, no emoji glyphs).
+const ICONS = {
+  react: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11v1a10 10 0 1 1-9-10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/><path d="M16 5h6"/><path d="M19 2v6"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+};
+
 // The little hover toolbar on each message.
 function buildMsgActions(m, convId, bubble) {
   const bar = document.createElement('div');
@@ -261,20 +324,21 @@ function buildMsgActions(m, convId, bubble) {
   const canDelete = mine || me.role === 'owner';
   const canEdit = mine && m.content; // only text you wrote
 
-  const add = (label, title, fn) => {
+  const add = (icon, title, fn, cls) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = label;
+    b.innerHTML = ICONS[icon];
     b.title = title;
+    if (cls) b.className = cls;
     b.addEventListener('click', fn);
     bar.appendChild(b);
   };
 
   // Anyone in the chat can react and pin.
-  add('☺', 'React', (e) => { e.stopPropagation(); openReactionPicker(e.currentTarget, m); });
-  add(m.pinned ? '📌' : '📍', m.pinned ? 'Unpin' : 'Pin', () => togglePinMessage(m));
-  if (canEdit) add('✎', 'Edit', () => startEditMessage(m, bubble, convId));
-  if (canDelete) add('🗑', 'Delete', () => deleteMessage(m));
+  add('react', 'Add reaction', (e) => { e.stopPropagation(); openReactionPicker(e.currentTarget, m); });
+  add('pin', m.pinned ? 'Unpin' : 'Pin', () => togglePinMessage(m), m.pinned ? 'is-active' : '');
+  if (canEdit) add('edit', 'Edit', () => startEditMessage(m, bubble, convId));
+  if (canDelete) add('trash', 'Delete', () => deleteMessage(m), 'danger');
 
   return bar;
 }
@@ -318,11 +382,11 @@ function startEditMessage(m, bubble, convId) {
   editor.querySelector('.link-btn').addEventListener('click', () => { bubble.innerHTML = prev; });
 }
 
-// Upload files (up to 30 MB each) and post each as a message. Multiple files can
-// be picked at once. While a file uploads, a "Uploading…" placeholder is shown.
-// Images preview inline (image_url); other files show a download link.
+// Upload files (up to 30 MB each). Multiple pics picked together are sent as ONE
+// bubble (WhatsApp style), and whatever you'd typed in the composer goes out as
+// the caption. A "Uploading…" placeholder bubble shows while it's in flight.
 const MAX_UPLOAD = 30 * 1024 * 1024;
-const pendingUploads = []; // {id, name, isImage, boxId}
+const pendingUploads = []; // {label, boxId}
 
 function myBoxId() { return me.role === 'owner' ? 'owner-messages' : 'cust-messages'; }
 function myRefresh() { return me.role === 'owner' ? refreshOwner() : refreshCustomer(); }
@@ -334,44 +398,79 @@ function renderPending(box, boxId) {
     row.className = 'msg-row mine';
     row.innerHTML =
       '<div class="msg-bubble"><span class="msg-name">You</span>' +
-      '<span class="msg-uploading"><span class="spinner"></span>' +
-      (p.isImage ? 'Uploading image…' : 'Uploading ' + esc(p.name) + '…') + '</span></div>';
+      '<span class="msg-uploading"><span class="spinner"></span>Uploading ' +
+      esc(p.label) + '…</span></div>';
     box.appendChild(row);
   });
+}
+
+async function uploadToBucket(file) {
+  const isImage = file.type.startsWith('image/');
+  const bucket = isImage ? 'chat-images' : 'chat-files';
+  const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80);
+  const path = `${me.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+  const { error } = await supabase.storage.from(bucket)
+    .upload(path, file, { contentType: file.type || 'application/octet-stream' });
+  if (error) { alert(error.message); return null; }
+  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
 
 async function sendAttachment(fileInput, convId) {
   const files = Array.from(fileInput.files || []);
   fileInput.value = '';
-  if (!files.length) return;
-  const boxId = myBoxId();
+  const ok = files.filter((f) => {
+    if (f.size > MAX_UPLOAD) { alert('"' + f.name + '" is over 30 MB — skipped.'); return false; }
+    return true;
+  });
+  if (!ok.length) return;
 
-  for (const file of files) {
-    if (file.size > MAX_UPLOAD) { alert('"' + file.name + '" is over 30 MB — skipped.'); continue; }
+  // the composer text rides along as the caption
+  const inputEl = document.getElementById(me.role === 'owner' ? 'owner-input' : 'cust-input');
+  const caption = inputEl ? inputEl.value.trim() : '';
+  if (inputEl) inputEl.value = '';
 
-    const isImage = file.type.startsWith('image/');
-    const pending = { id: String(Date.now()) + Math.random(), name: file.name, isImage, boxId };
-    pendingUploads.push(pending);
-    await myRefresh(); // show the loading placeholder
+  const images = ok.filter((f) => f.type.startsWith('image/'));
+  const others = ok.filter((f) => !f.type.startsWith('image/'));
 
-    const bucket = isImage ? 'chat-images' : 'chat-files';
-    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80);
-    const path = `${me.id}/${Date.now()}-${safe}`;
+  const label = images.length
+    ? (images.length === 1 ? 'image' : images.length + ' images')
+    : ok[0].name;
+  const pending = { label, boxId: myBoxId() };
+  pendingUploads.push(pending);
+  await myRefresh(); // show the loading placeholder
 
-    const { error: upErr } = await supabase.storage.from(bucket)
-      .upload(path, file, { contentType: file.type || 'application/octet-stream' });
-
+  try {
+    // all images share one bubble, caption underneath
+    if (images.length) {
+      const urls = [];
+      for (const f of images) {
+        const u = await uploadToBucket(f);
+        if (u) urls.push(u);
+      }
+      if (urls.length) {
+        const { error } = await supabase.from('messages').insert({
+          conversation_id: convId, sender_id: me.id,
+          content: caption || null, image_urls: urls,
+        });
+        if (error) alert(error.message);
+      }
+    }
+    // non-image files still go one per message; the caption tags along on the
+    // first one when there were no images to carry it
+    let fileCaption = images.length ? null : (caption || null);
+    for (const f of others) {
+      const u = await uploadToBucket(f);
+      if (!u) continue;
+      const { error } = await supabase.from('messages').insert({
+        conversation_id: convId, sender_id: me.id,
+        content: fileCaption, file_url: u, file_name: f.name,
+      });
+      fileCaption = null;
+      if (error) alert(error.message);
+    }
+  } finally {
     const idx = pendingUploads.indexOf(pending);
     if (idx >= 0) pendingUploads.splice(idx, 1);
-    if (upErr) { alert(upErr.message); await myRefresh(); continue; }
-
-    const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
-    const row = { conversation_id: convId, sender_id: me.id };
-    if (isImage) row.image_url = pub.publicUrl;
-    else { row.file_url = pub.publicUrl; row.file_name = file.name; }
-
-    const { error } = await supabase.from('messages').insert(row);
-    if (error) alert(error.message);
     await myRefresh();
   }
 }
@@ -496,8 +595,9 @@ function insertAtCursor(input, text) {
   const end = input.selectionEnd ?? input.value.length;
   input.value = input.value.slice(0, start) + text + input.value.slice(end);
   const caret = start + text.length;
+  // preventScroll: focusing the composer must not jump the page around
+  input.focus({ preventScroll: true });
   input.setSelectionRange(caret, caret);
-  input.focus();
 }
 
 // Refresh every picker on the page (after the owner adds/removes an emoji).
@@ -548,6 +648,7 @@ async function initOwner() {
   wireEmojiPicker('owner-emoji-btn', 'owner-emoji-pop', 'owner-input');
   initEmojiManager();
 
+  document.getElementById('conv-search').addEventListener('input', renderConvList);
   document.getElementById('add-order').addEventListener('click', addOrder);
   document.getElementById('todo-add').addEventListener('submit', addTodo);
   document.getElementById('autoreply-save').addEventListener('click', saveAutoReply);
@@ -557,6 +658,20 @@ async function initOwner() {
 function initEmojiManager() {
   renderEmojiManage();
   document.getElementById('emoji-add').addEventListener('submit', addEmoji);
+
+  // Hide/unhide the whole emoji block so 50+ chips don't swallow the panel.
+  // The choice sticks across visits (localStorage).
+  const toggle = document.getElementById('emoji-toggle');
+  const body = document.getElementById('emoji-body');
+  const apply = (hidden) => {
+    body.hidden = hidden;
+    toggle.textContent = hidden ? 'Show' : 'Hide';
+    try { localStorage.setItem('emojiPanelHidden', hidden ? '1' : ''); } catch (e) {}
+  };
+  let saved = false;
+  try { saved = localStorage.getItem('emojiPanelHidden') === '1'; } catch (e) {}
+  apply(saved);
+  toggle.addEventListener('click', () => apply(!body.hidden));
 }
 
 function renderEmojiManage() {
@@ -640,21 +755,34 @@ async function saveAutoReply() {
   if (!error) setTimeout(() => { msg.textContent = ''; }, 1500);
 }
 
+let convCache = [];
+
 async function loadConversations() {
   const { data: convs } = await supabase.from('conversations').select('*');
-  const list = convs || [];
-  await cacheProfiles(list.map((c) => c.customer_id));
+  convCache = convs || [];
+  await cacheProfiles(convCache.map((c) => c.customer_id));
 
   // pinned first, then most recent activity
-  list.sort((a, b) => {
+  convCache.sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     return new Date(b.last_message_at) - new Date(a.last_message_at);
   });
 
+  renderConvList();
+}
+
+// Draw the sidebar, applying whatever's typed in the DM search box.
+function renderConvList() {
+  const q = (document.getElementById('conv-search').value || '').trim().toLowerCase();
+  const list = convCache.filter((c) => {
+    const p = profileCache[c.customer_id] || {};
+    return !q || (p.username || '').toLowerCase().includes(q);
+  });
+
   const wrap = document.getElementById('conv-items');
-  const empty = document.getElementById('conv-empty');
   wrap.innerHTML = '';
-  empty.hidden = list.length > 0;
+  document.getElementById('conv-empty').hidden = convCache.length > 0;
+  document.getElementById('conv-no-match').hidden = !(convCache.length && !list.length);
 
   list.forEach((c) => {
     const p = profileCache[c.customer_id] || {};
@@ -688,6 +816,12 @@ async function openConversation(conv) {
     '</div>';
   document.getElementById('pin-btn').addEventListener('click', () => togglePin(conv));
   document.getElementById('ban-btn').addEventListener('click', () => toggleBan(conv, p));
+
+  // click the customer's avatar/name in the header to open their profile card
+  head.querySelector('.chat-head-avatar').style.cursor = 'pointer';
+  head.querySelector('.chat-head-avatar').addEventListener('click', () => openProfileCard(p));
+  head.querySelector('.chat-head-info').style.cursor = 'pointer';
+  head.querySelector('.chat-head-info').addEventListener('click', () => openProfileCard(p));
 
   document.getElementById('owner-composer').hidden = false;
   document.getElementById('owner-side').hidden = false;
@@ -737,9 +871,11 @@ function renderHistory(deleted) {
     const sender = profileCache[m.sender_id];
     const who = m.sender_id === me.id ? 'You' : (sender ? sender.username : 'User');
     const remover = m.deleted_by === me.id ? 'you' : (m.deleted_by === m.sender_id ? who.toLowerCase() : 'owner');
+    const imgCount = (m.image_urls || []).length || (m.image_url ? 1 : 0);
     const preview = m.content
       ? renderContent(m.content)
-      : (m.image_url ? '📷 image' : (m.file_name ? '📎 ' + esc(m.file_name) : '(empty)'));
+      : (imgCount ? '📷 ' + (imgCount === 1 ? 'image' : imgCount + ' images')
+        : (m.file_name ? '📎 ' + esc(m.file_name) : '(empty)'));
 
     const item = document.createElement('div');
     item.className = 'history-item restorable';

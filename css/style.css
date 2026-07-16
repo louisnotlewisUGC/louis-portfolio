@@ -1013,6 +1013,74 @@ section { padding: 72px 0; }
 .reaction-picker button:hover { background: var(--sky-100); }
 .reaction-picker .chat-emoji { height: 1.35em; }
 
+/* ---- DM search ---- */
+.conv-search {
+  width: 100%; font-family: var(--font-body); font-size: 0.88rem;
+  border: 1.5px solid var(--sky-200); border-radius: 999px;
+  padding: 8px 14px; background: var(--sky-050); color: var(--ink);
+  margin-bottom: 10px;
+}
+.conv-search:focus { outline: none; border-color: var(--sky-400); background: #fff; }
+
+/* ---- grouped image gallery (WhatsApp-style bubble) ---- */
+.msg-gallery { display: grid; gap: 4px; margin-top: 4px; max-width: 240px; border-radius: 12px; overflow: hidden; }
+.msg-gallery.g2, .msg-gallery.gmulti { grid-template-columns: 1fr 1fr; }
+.msg-gallery .msg-image-link { display: block; }
+.msg-gallery .msg-image { width: 100%; margin: 0; border-radius: 0; }
+.msg-gallery.g1 .msg-image { width: 220px; height: auto; }
+.msg-gallery.g2 .msg-image, .msg-gallery.gmulti .msg-image { height: 110px; object-fit: cover; }
+.msg-gallery + .msg-text { margin-top: 6px; }
+
+/* ---- Discord-like hover toolbar icons ---- */
+.msg-actions button { display: grid; place-items: center; }
+.msg-actions button svg { width: 16px; height: 16px; }
+.msg-actions button.is-active { color: var(--peach-deep); }
+.msg-actions button.danger:hover { background: #ffe0e0; color: #c0392b; }
+
+/* ---- clickable names ---- */
+.msg-name.clickable { cursor: pointer; }
+.msg-name.clickable:hover { text-decoration: underline; }
+
+/* ---- profile card modal ---- */
+.profile-modal {
+  position: fixed; inset: 0; z-index: 120;
+  background: rgba(47, 74, 99, 0.45);
+  display: grid; place-items: center; padding: 20px;
+}
+.profile-card {
+  width: min(340px, 94vw); padding: 0 0 22px; overflow: hidden; position: relative;
+}
+.profile-card:hover { transform: none; box-shadow: var(--shadow-soft); }
+.profile-card-banner {
+  height: 110px;
+  background: linear-gradient(120deg, var(--sky-300), var(--peach-glow));
+  background-size: cover; background-position: center;
+}
+.profile-card-avatar {
+  width: 76px; height: 76px; border-radius: 50%; object-fit: cover;
+  border: 4px solid #fff; box-shadow: var(--shadow-soft);
+  margin: -38px 0 0 20px; position: relative;
+}
+.profile-card-body { padding: 8px 20px 0; display: flex; flex-direction: column; gap: 3px; }
+.profile-card-body strong { font-family: var(--font-display); font-size: 1.15rem; }
+.profile-card-role { font-size: 0.78rem; color: var(--sky-500); font-weight: 700; }
+.profile-card-desc { font-size: 0.9rem; color: var(--ink-soft); white-space: pre-wrap; word-break: break-word; margin-top: 6px; }
+.profile-card-close {
+  position: absolute; top: 10px; right: 12px; z-index: 2;
+  width: 28px; height: 28px; border: none; border-radius: 999px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.85); color: var(--ink); font-size: 0.85rem;
+}
+.profile-card-close:hover { background: #fff; }
+
+/* ---- profile page banner ---- */
+.profile-banner {
+  height: 110px; border-radius: 14px; margin-bottom: 6px;
+  background: linear-gradient(120deg, var(--sky-300), var(--peach-glow));
+  background-size: cover; background-position: center;
+  display: flex; align-items: flex-end; justify-content: flex-end; padding: 10px;
+}
+.banner-btn { background: rgba(255, 255, 255, 0.9); }
+
 .history-item {
   background: var(--sky-050); border: 1px solid var(--sky-200); border-radius: 12px;
   padding: 10px 12px; margin-bottom: 8px; font-size: 0.84rem;

@@ -73,8 +73,10 @@
       <!-- conversations sidebar -->
       <aside class="conv-list cloud-card">
         <h3>Conversations</h3>
+        <input type="search" class="conv-search" id="conv-search" placeholder="Search DMs…" autocomplete="off">
         <div id="conv-items"></div>
         <p class="hint" id="conv-empty" hidden>No customer messages yet.</p>
+        <p class="hint" id="conv-no-match" hidden>No DMs match that search.</p>
       </aside>
 
       <!-- chat window -->
@@ -116,7 +118,11 @@
         </div>
         <hr class="soft-divider">
         <div class="panel-section">
-          <h3>Custom emojis</h3>
+          <div class="panel-head">
+            <h3>Custom emojis</h3>
+            <button class="btn btn-soft btn-sm" id="emoji-toggle" type="button">Hide</button>
+          </div>
+          <div id="emoji-body">
           <p class="hint">Upload little images anyone can drop into chat by typing <code>:name:</code>.</p>
           <form class="emoji-add" id="emoji-add">
             <input type="text" id="emoji-name" placeholder="name (a–z, 0–9, _)" maxlength="32" autocomplete="off">
@@ -127,6 +133,7 @@
           </form>
           <p class="form-msg" id="emoji-msg"></p>
           <div class="emoji-manage" id="emoji-manage"></div>
+          </div>
         </div>
       </aside>
 
@@ -151,6 +158,20 @@
     </div>
 
   </main>
+
+  <!-- Profile card popup: opens when you click someone's name/avatar in chat -->
+  <div class="profile-modal" id="profile-modal" hidden>
+    <div class="profile-card cloud-card">
+      <button class="profile-card-close" id="profile-card-close" aria-label="Close">✕</button>
+      <div class="profile-card-banner" id="pc-banner"></div>
+      <img class="profile-card-avatar" id="pc-avatar" src="assets/avatar.svg" alt="">
+      <div class="profile-card-body">
+        <strong id="pc-name">User</strong>
+        <span class="profile-card-role" id="pc-role">Customer</span>
+        <p class="profile-card-desc" id="pc-desc"></p>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="js/chat.js"></script>
 </body>

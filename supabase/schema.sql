@@ -637,6 +637,7 @@ begin
 
   -- Attachments can't be edited.
   if new.image_url is distinct from old.image_url
+     or new.image_urls is distinct from old.image_urls
      or new.file_url is distinct from old.file_url
      or new.file_name is distinct from old.file_name then
     raise exception 'Attachments cannot be changed.';
@@ -724,6 +725,28 @@ begin
   exception when duplicate_object then null;
   end;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- Profile banner (shown on the profile card when someone clicks a user in chat).
+-- Grouped image messages: several pics sent at once share ONE bubble
+-- (image_urls array), optionally with caption text in the same message.
+-- ---------------------------------------------------------------------------
+alter table public.profiles add column if not exists banner_url text;
+alter table public.messages add column if not exists image_urls text[];
+
+-- A message is valid if it has text, a single image (legacy), grouped images,
+-- or a file.
+alter table public.messages drop constraint if exists messages_content_check;
+alter table public.messages add constraint messages_content_check
+  check (
+    (content is null or char_length(content) <= 1000)
+    and (
+      coalesce(content, '') <> ''
+      or image_url is not null
+      or image_urls is not null
+      or file_url is not null
+    )
+  );
 
 -- ============================================================================
 -- After running this, sign up on your website, then run ONE line to make
