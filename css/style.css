@@ -310,6 +310,8 @@ section { padding: 72px 0; }
 
 .hero-portrait img {
   width: min(300px, 70vw);
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
   border-radius: 50%;
   border: 10px solid #fff;
   box-shadow: var(--shadow-hover);
