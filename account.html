@@ -91,11 +91,49 @@
         <label>Display name
           <input type="text" id="username-input" maxlength="32">
         </label>
+        <label>About you
+          <textarea id="description-input" class="profile-textarea" rows="3" maxlength="300"
+            placeholder="A short bio — e.g. what you love about UGC hair…"></textarea>
+        </label>
         <div class="profile-actions">
           <button class="btn btn-primary" id="save-profile" type="button">Save changes</button>
           <a class="btn btn-soft" href="chat.html">Go to chat →</a>
         </div>
         <p class="form-msg" id="profile-msg" role="alert"></p>
+
+        <hr class="soft-divider">
+
+        <!-- ===== Advanced settings ===== -->
+        <details class="adv-settings">
+          <summary>Advanced settings</summary>
+
+          <div class="adv-block">
+            <h3>Account info</h3>
+            <dl class="account-info">
+              <dt>Email</dt><dd id="acc-email">—</dd>
+              <dt>Member since</dt><dd id="acc-since">—</dd>
+              <dt>Account type</dt><dd id="acc-role">—</dd>
+            </dl>
+          </div>
+
+          <div class="adv-block">
+            <h3>Change password</h3>
+            <label>New password
+              <input type="password" id="new-password" autocomplete="new-password" minlength="6" placeholder="At least 6 characters">
+            </label>
+            <label>Confirm new password
+              <input type="password" id="confirm-password" autocomplete="new-password" placeholder="Type it again">
+            </label>
+            <button class="btn btn-soft btn-sm" id="change-password" type="button">Update password</button>
+            <p class="form-msg" id="password-msg" role="alert"></p>
+          </div>
+
+          <div class="adv-block">
+            <h3>Ads</h3>
+            <p class="hint">Ad settings will go here — coming soon.</p>
+          </div>
+        </details>
+
         <hr class="soft-divider">
         <button class="link-btn danger" id="signout-btn" type="button">Sign out</button>
       </div>

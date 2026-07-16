@@ -133,21 +133,50 @@ async function enterProfile() {
   profileTries = 0;
   hide(authShell);
   document.getElementById('username-input').value = currentProfile.username || '';
+  document.getElementById('description-input').value = currentProfile.description || '';
   if (currentProfile.avatar_url) {
     document.getElementById('profile-avatar').src = currentProfile.avatar_url;
   }
+
+  // Account info (read-only)
+  const session = await getSession();
+  const email = session && session.user ? session.user.email : '';
+  document.getElementById('acc-email').textContent = email || '—';
+  document.getElementById('acc-since').textContent = currentProfile.created_at
+    ? new Date(currentProfile.created_at).toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' })
+    : '—';
+  document.getElementById('acc-role').textContent =
+    currentProfile.role === 'owner' ? 'Owner' : 'Customer';
+
   show(profileShell);
 }
 
 document.getElementById('save-profile').addEventListener('click', async () => {
   const username = document.getElementById('username-input').value.trim();
+  const description = document.getElementById('description-input').value.trim() || null;
   if (username.length < 2) return setMsg('profile-msg', 'Please enter a display name.');
   setMsg('profile-msg', 'Saving…', 'info');
   const { error } = await supabase
     .from('profiles')
-    .update({ username })
+    .update({ username, description })
     .eq('id', currentProfile.id);
+  if (!error) { currentProfile.username = username; currentProfile.description = description; }
   setMsg('profile-msg', error ? error.message : 'Saved!', error ? 'error' : 'success');
+});
+
+// ---- Change password ------------------------------------------------------
+document.getElementById('change-password').addEventListener('click', async () => {
+  const pw = document.getElementById('new-password').value;
+  const confirm = document.getElementById('confirm-password').value;
+  if (pw.length < 6) return setMsg('password-msg', 'Password must be at least 6 characters.');
+  if (pw !== confirm) return setMsg('password-msg', 'Those passwords don’t match.');
+
+  setMsg('password-msg', 'Updating…', 'info');
+  const { error } = await supabase.auth.updateUser({ password: pw });
+  if (error) return setMsg('password-msg', error.message);
+  document.getElementById('new-password').value = '';
+  document.getElementById('confirm-password').value = '';
+  setMsg('password-msg', 'Password updated!', 'success');
 });
 
 document.getElementById('avatar-input').addEventListener('change', async (e) => {

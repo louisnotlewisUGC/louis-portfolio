@@ -110,6 +110,29 @@ A public reviews wall where signed-in customers leave a 1–5 star rating + comm
 - **ACTION REQUIRED:** re-run `supabase/schema.sql` so the new message columns,
   updated policies, and guard trigger exist.
 
+## NEW: todo title+desc, multi-pic, reactions, profile settings (added 2026-07-16)
+- **To-do items** now have a title + optional description (`todos.description`).
+- **Multiple pics/files** in one send (file input is `multiple`); each uploads
+  separately showing a **"Uploading…" placeholder** bubble until it lands.
+- **Message reactions**: hover a message → ☺ opens a picker (8 common emojis +
+  your custom emojis); reaction chips show counts under the message, click to
+  toggle. New `message_reactions` table + RLS; realtime subscription added.
+- **Profile → Advanced settings** (`account.html`): public bio (`profiles.description`),
+  read-only account info (email / member since / type), change-password (Supabase
+  `auth.updateUser`), and an **Ads** placeholder ("coming soon" — to build later).
+- Files: `js/chat.js`, `js/account.js`, `chat.html`, `account.html`, `css/style.css`,
+  `supabase/schema.sql`.
+- **ACTION REQUIRED:** re-run `supabase/schema.sql` for the new columns
+  (`todos.description`, `profiles.description`) and the `message_reactions` table.
+- NOTE: verified the pages parse with no console errors, but the deep visual test
+  (reactions/upload/profile) was blocked by a transient tool outage — worth a live
+  once-over after the schema runs.
+
+## STILL TODO (asked but not built)
+- **Mini/floating chat bar** the user can hide/unhide — deferred pending a decision
+  on format (floating popup vs. collapsible side panel). Needs clarification before
+  building; it's the heaviest of the batch.
+
 ## Resuming on the new machine
 1. Install Claude Code, sign in with the new account.
 2. Clone the repo: `git clone https://github.com/louischoiart-maker/louis-portfolio.git`

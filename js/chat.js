@@ -87,10 +87,13 @@ async function initCustomer() {
   await refreshCustomer();
   await loadCustomerOrders(conv.id);
 
-  // live updates: re-render on any message change (insert / edit / delete / pin)
+  // live updates: re-render on any message or reaction change
   supabase.channel('cust-msgs-' + conv.id)
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + conv.id },
+      () => refreshCustomer())
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'message_reactions' },
       () => refreshCustomer())
     .subscribe();
 
@@ -118,6 +121,7 @@ async function refreshCustomer() {
     .from('messages').select('*').eq('conversation_id', custConvId).order('created_at');
   // RLS already hides deleted from customers; filter again to be safe.
   const msgs = (data || []).filter((m) => !m.deleted_at);
+  await attachReactions(msgs);
   renderMessages('cust-messages', msgs, custConvId);
 }
 
@@ -173,6 +177,7 @@ function renderMessages(boxId, msgs, convId) {
   if (pinned.length) box.appendChild(buildPinnedBar(pinned, box));
 
   msgs.forEach((m) => box.appendChild(buildMessageRow(m, convId)));
+  renderPending(box, boxId);
   box.scrollTop = box.scrollHeight;
 }
 
@@ -228,9 +233,24 @@ function buildMessageRow(m, convId) {
     body +
     '<span class="msg-time">' + pinTag + fmtTime(m.created_at) + editedTag + '</span>';
 
+  if (m.reactions && m.reactions.length) bubble.appendChild(buildReactions(m));
   bubble.appendChild(buildMsgActions(m, convId, bubble));
   row.appendChild(bubble);
   return row;
+}
+
+function buildReactions(m) {
+  const wrap = document.createElement('div');
+  wrap.className = 'reactions';
+  m.reactions.forEach((r) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'reaction-chip' + (r.mine ? ' mine' : '');
+    chip.innerHTML = renderReactionEmoji(r.emoji) + ' <span>' + r.count + '</span>';
+    chip.addEventListener('click', () => toggleReaction(m, r.emoji));
+    wrap.appendChild(chip);
+  });
+  return wrap;
 }
 
 // The little hover toolbar on each message.
@@ -250,7 +270,8 @@ function buildMsgActions(m, convId, bubble) {
     bar.appendChild(b);
   };
 
-  // Both participants may pin.
+  // Anyone in the chat can react and pin.
+  add('☺', 'React', (e) => { e.stopPropagation(); openReactionPicker(e.currentTarget, m); });
   add(m.pinned ? '📌' : '📍', m.pinned ? 'Unpin' : 'Pin', () => togglePinMessage(m));
   if (canEdit) add('✎', 'Edit', () => startEditMessage(m, bubble, convId));
   if (canDelete) add('🗑', 'Delete', () => deleteMessage(m));
@@ -297,33 +318,138 @@ function startEditMessage(m, bubble, convId) {
   editor.querySelector('.link-btn').addEventListener('click', () => { bubble.innerHTML = prev; });
 }
 
-// Upload any file (up to 30 MB) and post it as a message. Images preview inline
-// (image_url); everything else shows as a download link (file_url + file_name).
+// Upload files (up to 30 MB each) and post each as a message. Multiple files can
+// be picked at once. While a file uploads, a "Uploading…" placeholder is shown.
+// Images preview inline (image_url); other files show a download link.
 const MAX_UPLOAD = 30 * 1024 * 1024;
+const pendingUploads = []; // {id, name, isImage, boxId}
+
+function myBoxId() { return me.role === 'owner' ? 'owner-messages' : 'cust-messages'; }
+function myRefresh() { return me.role === 'owner' ? refreshOwner() : refreshCustomer(); }
+
+// Append a loading bubble for each in-flight upload (called by renderMessages).
+function renderPending(box, boxId) {
+  pendingUploads.filter((p) => p.boxId === boxId).forEach((p) => {
+    const row = document.createElement('div');
+    row.className = 'msg-row mine';
+    row.innerHTML =
+      '<div class="msg-bubble"><span class="msg-name">You</span>' +
+      '<span class="msg-uploading"><span class="spinner"></span>' +
+      (p.isImage ? 'Uploading image…' : 'Uploading ' + esc(p.name) + '…') + '</span></div>';
+    box.appendChild(row);
+  });
+}
 
 async function sendAttachment(fileInput, convId) {
-  const file = fileInput.files[0];
-  if (!file) return;
-  if (file.size > MAX_UPLOAD) { alert('Files must be under 30 MB.'); fileInput.value = ''; return; }
-
-  const isImage = file.type.startsWith('image/');
-  const bucket = isImage ? 'chat-images' : 'chat-files';
-  // Keep the original extension; make the object name unique + safe.
-  const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80);
-  const path = `${me.id}/${Date.now()}-${safe}`;
-
-  const { error: upErr } = await supabase.storage.from(bucket)
-    .upload(path, file, { contentType: file.type || 'application/octet-stream' });
-  if (upErr) { alert(upErr.message); fileInput.value = ''; return; }
-
-  const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
-  const row = { conversation_id: convId, sender_id: me.id };
-  if (isImage) row.image_url = pub.publicUrl;
-  else { row.file_url = pub.publicUrl; row.file_name = file.name; }
-
-  const { error } = await supabase.from('messages').insert(row);
-  if (error) alert(error.message);
+  const files = Array.from(fileInput.files || []);
   fileInput.value = '';
+  if (!files.length) return;
+  const boxId = myBoxId();
+
+  for (const file of files) {
+    if (file.size > MAX_UPLOAD) { alert('"' + file.name + '" is over 30 MB — skipped.'); continue; }
+
+    const isImage = file.type.startsWith('image/');
+    const pending = { id: String(Date.now()) + Math.random(), name: file.name, isImage, boxId };
+    pendingUploads.push(pending);
+    await myRefresh(); // show the loading placeholder
+
+    const bucket = isImage ? 'chat-images' : 'chat-files';
+    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80);
+    const path = `${me.id}/${Date.now()}-${safe}`;
+
+    const { error: upErr } = await supabase.storage.from(bucket)
+      .upload(path, file, { contentType: file.type || 'application/octet-stream' });
+
+    const idx = pendingUploads.indexOf(pending);
+    if (idx >= 0) pendingUploads.splice(idx, 1);
+    if (upErr) { alert(upErr.message); await myRefresh(); continue; }
+
+    const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
+    const row = { conversation_id: convId, sender_id: me.id };
+    if (isImage) row.image_url = pub.publicUrl;
+    else { row.file_url = pub.publicUrl; row.file_name = file.name; }
+
+    const { error } = await supabase.from('messages').insert(row);
+    if (error) alert(error.message);
+    await myRefresh();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reactions
+// ---------------------------------------------------------------------------
+const COMMON_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '🎉'];
+let activeReactionPicker = null;
+
+// Fetch reactions for a set of messages and attach a grouped list to each.
+async function attachReactions(msgs) {
+  const ids = msgs.map((m) => m.id);
+  const { data } = ids.length
+    ? await supabase.from('message_reactions').select('*').in('message_id', ids)
+    : { data: [] };
+  const byMsg = {};
+  (data || []).forEach((r) => { (byMsg[r.message_id] = byMsg[r.message_id] || []).push(r); });
+  msgs.forEach((m) => {
+    const grouped = {};
+    (byMsg[m.id] || []).forEach((r) => {
+      grouped[r.emoji] = grouped[r.emoji] || { emoji: r.emoji, count: 0, mine: false };
+      grouped[r.emoji].count += 1;
+      if (r.user_id === me.id) grouped[r.emoji].mine = true;
+    });
+    m.reactions = Object.values(grouped);
+  });
+}
+
+function renderReactionEmoji(emoji) {
+  const cm = /^:([a-z0-9_]+):$/.exec(emoji);
+  if (cm && emojiMap[cm[1]]) {
+    return '<img class="chat-emoji" src="' + esc(emojiMap[cm[1]]) + '" alt="' + esc(emoji) + '">';
+  }
+  return esc(emoji);
+}
+
+async function toggleReaction(m, emoji) {
+  const mine = (m.reactions || []).find((r) => r.emoji === emoji && r.mine);
+  if (mine) {
+    await supabase.from('message_reactions').delete()
+      .eq('message_id', m.id).eq('user_id', me.id).eq('emoji', emoji);
+  } else {
+    const { error } = await supabase.from('message_reactions')
+      .insert({ message_id: m.id, user_id: me.id, emoji });
+    if (error && !/duplicate/i.test(error.message)) alert(error.message);
+  }
+  await myRefresh();
+}
+
+function closeReactionPicker() {
+  if (activeReactionPicker) { activeReactionPicker.remove(); activeReactionPicker = null; }
+}
+
+function openReactionPicker(anchorBtn, m) {
+  closeReactionPicker();
+  const pop = document.createElement('div');
+  pop.className = 'reaction-picker';
+  const emojis = COMMON_REACTIONS.concat(emojiList.map((em) => ':' + em.name + ':'));
+  emojis.forEach((emoji) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = renderReactionEmoji(emoji);
+    b.addEventListener('click', (e) => { e.stopPropagation(); toggleReaction(m, emoji); closeReactionPicker(); });
+    pop.appendChild(b);
+  });
+  document.body.appendChild(pop);
+  const r = anchorBtn.getBoundingClientRect();
+  pop.style.top = (window.scrollY + r.bottom + 4) + 'px';
+  pop.style.left = (window.scrollX + Math.max(8, r.left - 60)) + 'px';
+  activeReactionPicker = pop;
+  setTimeout(() => document.addEventListener('click', onReactionOutside), 0);
+}
+function onReactionOutside(e) {
+  if (activeReactionPicker && !activeReactionPicker.contains(e.target)) {
+    closeReactionPicker();
+    document.removeEventListener('click', onReactionOutside);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -569,12 +695,15 @@ async function openConversation(conv) {
 
   await refreshOwner();
 
-  // realtime: re-render on any message change (insert / edit / delete / pin)
+  // realtime: re-render on any message or reaction change
   if (activeMsgChannel) supabase.removeChannel(activeMsgChannel);
   activeMsgChannel = supabase.channel('owner-msgs-' + conv.id)
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + conv.id },
       () => { if (activeConv && activeConv.id === conv.id) refreshOwner(); })
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'message_reactions' },
+      () => { if (activeConv) refreshOwner(); })
     .subscribe();
 
   await loadOwnerOrders(conv.id);
@@ -589,7 +718,9 @@ async function refreshOwner() {
   const { data } = await supabase
     .from('messages').select('*').eq('conversation_id', activeConv.id).order('created_at');
   const all = data || [];
-  renderMessages('owner-messages', all.filter((m) => !m.deleted_at), activeConv.id);
+  const visible = all.filter((m) => !m.deleted_at);
+  await attachReactions(visible);
+  renderMessages('owner-messages', visible, activeConv.id);
   renderHistory(all.filter((m) => m.deleted_at));
 }
 
@@ -725,8 +856,10 @@ async function loadTodos() {
 function todoRow(t) {
   const row = document.createElement('div');
   row.className = 'todo-row' + (t.done ? ' done' : '');
+  const desc = t.description ? '<span class="todo-desc">' + esc(t.description) + '</span>' : '';
   row.innerHTML =
-    '<label><input type="checkbox"' + (t.done ? ' checked' : '') + '> <span>' + esc(t.content) + '</span></label>' +
+    '<label><input type="checkbox"' + (t.done ? ' checked' : '') + '>' +
+      '<span class="todo-text"><span class="todo-title">' + esc(t.content) + '</span>' + desc + '</span></label>' +
     '<button class="link-btn danger todo-del">✕</button>';
   row.querySelector('input').addEventListener('change', async (e) => {
     await supabase.from('todos').update({ done: e.target.checked }).eq('id', t.id);
@@ -742,10 +875,14 @@ function todoRow(t) {
 async function addTodo(e) {
   e.preventDefault();
   const input = document.getElementById('todo-input');
+  const descInput = document.getElementById('todo-desc');
   const content = input.value.trim();
   if (!content) return;
+  const description = descInput.value.trim() || null;
   input.value = '';
-  const { data, error } = await supabase.from('todos').insert({ content }).select().single();
+  descInput.value = '';
+  const { data, error } = await supabase.from('todos')
+    .insert({ content, description }).select().single();
   if (error) return alert(error.message);
   document.getElementById('todo-list').appendChild(todoRow(data));
 }

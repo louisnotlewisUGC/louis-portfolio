@@ -660,6 +660,71 @@ create trigger guard_message_update_trg
   before update on public.messages
   for each row execute function public.guard_message_update();
 
+-- ---------------------------------------------------------------------------
+-- To-do items get an optional description (content stays as the title).
+-- Profiles get an optional public description/bio.
+-- ---------------------------------------------------------------------------
+alter table public.todos add column if not exists description text;
+alter table public.profiles add column if not exists description text;
+
+-- ---------------------------------------------------------------------------
+-- Message reactions: a user reacts to a message with an emoji (a unicode char,
+-- or a custom :shortcode:). One of each emoji per user per message.
+-- Participants of the conversation (and the owner) can see and add reactions.
+-- ---------------------------------------------------------------------------
+create table if not exists public.message_reactions (
+  id          uuid primary key default gen_random_uuid(),
+  message_id  uuid not null references public.messages(id) on delete cascade,
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  emoji       text not null check (char_length(emoji) between 1 and 64),
+  created_at  timestamptz not null default now(),
+  unique (message_id, user_id, emoji)
+);
+create index if not exists reactions_message_idx on public.message_reactions (message_id);
+
+grant select, insert, delete on public.message_reactions to authenticated;
+alter table public.message_reactions enable row level security;
+
+drop policy if exists reactions_select on public.message_reactions;
+create policy reactions_select on public.message_reactions
+  for select to authenticated
+  using (
+    public.is_owner()
+    or exists (
+      select 1 from public.messages m
+      join public.conversations c on c.id = m.conversation_id
+      where m.id = message_reactions.message_id and c.customer_id = auth.uid()
+    )
+  );
+
+drop policy if exists reactions_insert on public.message_reactions;
+create policy reactions_insert on public.message_reactions
+  for insert to authenticated
+  with check (
+    user_id = auth.uid()
+    and (
+      public.is_owner()
+      or exists (
+        select 1 from public.messages m
+        join public.conversations c on c.id = m.conversation_id
+        where m.id = message_reactions.message_id and c.customer_id = auth.uid()
+      )
+    )
+  );
+
+drop policy if exists reactions_delete on public.message_reactions;
+create policy reactions_delete on public.message_reactions
+  for delete to authenticated
+  using (user_id = auth.uid() or public.is_owner());
+
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table public.message_reactions;
+  exception when duplicate_object then null;
+  end;
+end $$;
+
 -- ============================================================================
 -- After running this, sign up on your website, then run ONE line to make
 -- yourself the owner (replace the email with the one you signed up with):
