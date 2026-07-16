@@ -83,6 +83,9 @@ async function initCustomer() {
     });
     if (error) alert(error.message);
   });
+
+  document.getElementById('cust-image').addEventListener('change', (e) =>
+    sendImage(e.target, conv.id));
 }
 
 async function ensureConversation() {
@@ -141,14 +144,42 @@ function appendMessage(boxId, m) {
   const name = mine ? 'You' : (sender ? sender.username : 'Them');
   const row = document.createElement('div');
   row.className = 'msg-row ' + (mine ? 'mine' : 'theirs');
+
+  let body = '';
+  if (m.content) body += '<span class="msg-text">' + esc(m.content) + '</span>';
+  if (m.image_url) {
+    body += '<a class="msg-image-link" href="' + esc(m.image_url) + '" target="_blank" rel="noopener">' +
+      '<img class="msg-image" src="' + esc(m.image_url) + '" alt="shared image"></a>';
+  }
+
   row.innerHTML =
     '<div class="msg-bubble">' +
       '<span class="msg-name">' + esc(name) + '</span>' +
-      '<span class="msg-text">' + esc(m.content) + '</span>' +
+      body +
       '<span class="msg-time">' + fmtTime(m.created_at) + '</span>' +
     '</div>';
   box.appendChild(row);
   box.scrollTop = box.scrollHeight;
+}
+
+// Upload an image file and post it as a message in the given conversation.
+async function sendImage(fileInput, convId) {
+  const file = fileInput.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { alert('Please choose an image file.'); fileInput.value = ''; return; }
+  if (file.size > 5 * 1024 * 1024) { alert('Image must be under 5 MB.'); fileInput.value = ''; return; }
+
+  const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+  const path = `${me.id}/${Date.now()}.${ext}`;
+  const { error: upErr } = await supabase.storage.from('chat-images').upload(path, file);
+  if (upErr) { alert(upErr.message); fileInput.value = ''; return; }
+
+  const { data: pub } = supabase.storage.from('chat-images').getPublicUrl(path);
+  const { error } = await supabase.from('messages').insert({
+    conversation_id: convId, sender_id: me.id, image_url: pub.publicUrl,
+  });
+  if (error) alert(error.message);
+  fileInput.value = '';
 }
 
 // ===========================================================================
@@ -161,6 +192,7 @@ async function initOwner() {
   ownerView.hidden = false;
   await loadConversations();
   await loadTodos();
+  await loadAutoReply();
 
   // refresh sidebar whenever any conversation changes (new message bumps it)
   supabase.channel('owner-convs')
@@ -181,8 +213,30 @@ async function initOwner() {
     if (error) alert(error.message);
   });
 
+  document.getElementById('owner-image').addEventListener('change', (e) => {
+    if (!activeConv) return;
+    sendImage(e.target, activeConv.id);
+  });
+
   document.getElementById('add-order').addEventListener('click', addOrder);
   document.getElementById('todo-add').addEventListener('submit', addTodo);
+  document.getElementById('autoreply-save').addEventListener('click', saveAutoReply);
+}
+
+// ---- Auto-welcome reply (owner-editable) ----------------------------------
+async function loadAutoReply() {
+  const { data } = await supabase.from('settings').select('auto_reply').eq('id', 1).single();
+  if (data) document.getElementById('autoreply-input').value = data.auto_reply || '';
+}
+
+async function saveAutoReply() {
+  const text = document.getElementById('autoreply-input').value.trim();
+  const msg = document.getElementById('autoreply-msg');
+  if (!text) { msg.textContent = 'Please enter some text.'; msg.className = 'form-msg error'; return; }
+  const { error } = await supabase.from('settings').update({ auto_reply: text }).eq('id', 1);
+  msg.textContent = error ? error.message : 'Saved!';
+  msg.className = 'form-msg ' + (error ? 'error' : 'success');
+  if (!error) setTimeout(() => { msg.textContent = ''; }, 1500);
 }
 
 async function loadConversations() {

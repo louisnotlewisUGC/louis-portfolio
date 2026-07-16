@@ -320,6 +320,106 @@ create policy avatars_user_update on storage.objects
   for update to authenticated
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 
+-- ---------------------------------------------------------------------------
+-- Chat image attachments: a bucket, and an image_url column on messages so a
+-- message can be text, an image, or both.
+-- ---------------------------------------------------------------------------
+
+alter table public.messages add column if not exists image_url text;
+alter table public.messages alter column content drop not null;
+
+-- Replace the old "content must be 1..1000 chars" rule with one that also
+-- accepts image-only messages.
+alter table public.messages drop constraint if exists messages_content_check;
+alter table public.messages add constraint messages_content_check
+  check (
+    (content is null or char_length(content) <= 1000)
+    and (coalesce(content, '') <> '' or image_url is not null)
+  );
+
+insert into storage.buckets (id, name, public)
+values ('chat-images', 'chat-images', true)
+on conflict (id) do nothing;
+
+drop policy if exists chat_images_read on storage.objects;
+create policy chat_images_read on storage.objects
+  for select using (bucket_id = 'chat-images');
+
+drop policy if exists chat_images_write on storage.objects;
+create policy chat_images_write on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'chat-images' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ---------------------------------------------------------------------------
+-- Auto-welcome reply: an owner-editable message that is sent automatically
+-- the first time a new customer messages.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.settings (
+  id          int primary key default 1,
+  auto_reply  text not null default
+    'Hi! Thanks for messaging me 💙 To get your commission started, please send: '
+    || '(1) a reference image of the hair, (2) which tier you want '
+    || '(Simple / Medium / Detailed), and (3) any deadline. I''ll reply with a quote!',
+  constraint settings_single_row check (id = 1)
+);
+insert into public.settings (id) values (1) on conflict (id) do nothing;
+
+alter table public.settings enable row level security;
+grant select, update on public.settings to authenticated;
+
+drop policy if exists settings_select on public.settings;
+create policy settings_select on public.settings
+  for select to authenticated using (true);
+
+drop policy if exists settings_update_owner on public.settings;
+create policy settings_update_owner on public.settings
+  for update to authenticated
+  using (public.is_owner()) with check (public.is_owner());
+
+create or replace function public.auto_reply_on_first_message()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  cust_id uuid;
+  owner_id uuid;
+  cust_msg_count int;
+  reply_text text;
+begin
+  select customer_id into cust_id from public.conversations where id = new.conversation_id;
+
+  -- react only to the customer's own messages
+  if new.sender_id is distinct from cust_id then
+    return new;
+  end if;
+
+  -- only on their very first message in this conversation
+  select count(*) into cust_msg_count from public.messages
+  where conversation_id = new.conversation_id and sender_id = cust_id;
+  if cust_msg_count <> 1 then
+    return new;
+  end if;
+
+  select id into owner_id from public.profiles where role = 'owner' limit 1;
+  select auto_reply into reply_text from public.settings where id = 1;
+  if owner_id is null or reply_text is null or reply_text = '' then
+    return new;
+  end if;
+
+  insert into public.messages (conversation_id, sender_id, content)
+  values (new.conversation_id, owner_id, reply_text);
+  return new;
+end;
+$$;
+
+drop trigger if exists auto_reply_trg on public.messages;
+create trigger auto_reply_trg
+  after insert on public.messages
+  for each row execute function public.auto_reply_on_first_message();
+
 -- ============================================================================
 -- After running this, sign up on your website, then run ONE line to make
 -- yourself the owner (replace the email with the one you signed up with):
