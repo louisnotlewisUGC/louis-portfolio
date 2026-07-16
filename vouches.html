@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vouches · Louis — UGC Hair Creator</title>
+  <meta name="description" content="Reviews and vouches from customers who commissioned Roblox UGC hair from Louis.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Drifting sky decor -->
+  <div class="sky" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+    <div class="cloud cloud-3"></div>
+    <div class="spark spark-1"></div>
+    <div class="spark spark-2"></div>
+    <div class="spark spark-3"></div>
+    <div class="spark spark-4"></div>
+  </div>
+
+  <header class="site-header">
+    <nav class="nav-pill">
+      <a class="brand" href="index.html"><span class="dot"></span>Louis</a>
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
+      <ul class="nav-links">
+        <li><a href="index.html">← Back home</a></li>
+        <li><a href="portfolio.html">Portfolio</a></li>
+        <li id="nav-auth"><a href="account.html">Sign in</a></li>
+        <li><a class="nav-cta" href="index.html#contact">Commission me</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="page">
+
+    <!-- ================= HERO / SUMMARY ================= -->
+    <section class="vouch-hero">
+      <h1>Vouches ☁️</h1>
+      <p>Kind words from people I've made hair for. Commissioned something? Leave your own vouch below 💙</p>
+      <div class="vouch-summary" id="vouch-summary" hidden>
+        <div class="vouch-avg" id="vouch-avg">0.0</div>
+        <div>
+          <div class="vouch-avg-stars" id="vouch-avg-stars" aria-hidden="true"></div>
+          <div class="vouch-count" id="vouch-count">No vouches yet</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= LEAVE A VOUCH ================= -->
+    <section class="vouch-form-section" style="padding-top: 0;">
+      <!-- Signed out: prompt to log in -->
+      <div class="cloud-card vouch-signin" id="vouch-signin" hidden>
+        <h2>Want to leave a vouch?</h2>
+        <p>Sign in to your account to rate your commission and post a review.</p>
+        <a class="btn btn-primary" href="account.html">Sign in / Create account</a>
+      </div>
+
+      <!-- Signed in: the form -->
+      <form class="cloud-card vouch-form" id="vouch-form" hidden>
+        <h2 id="vouch-form-title">Leave a vouch</h2>
+        <p class="hint" id="vouch-form-hint">Tap the stars to rate, then write a quick comment.</p>
+
+        <div class="star-picker" id="star-picker" role="radiogroup" aria-label="Rating out of 5 stars">
+          <button type="button" class="star-btn" data-value="1" aria-label="1 star">☆</button>
+          <button type="button" class="star-btn" data-value="2" aria-label="2 stars">☆</button>
+          <button type="button" class="star-btn" data-value="3" aria-label="3 stars">☆</button>
+          <button type="button" class="star-btn" data-value="4" aria-label="4 stars">☆</button>
+          <button type="button" class="star-btn" data-value="5" aria-label="5 stars">☆</button>
+        </div>
+
+        <textarea id="vouch-comment" class="vouch-textarea" rows="4" maxlength="500"
+          placeholder="How was your commission? e.g. Super happy with my hair, fast and friendly!"></textarea>
+
+        <div class="vouch-form-actions">
+          <button class="btn btn-primary" type="submit" id="vouch-submit">Post vouch</button>
+          <button class="link-btn danger" type="button" id="vouch-delete" hidden>Remove my vouch</button>
+        </div>
+        <p class="form-msg" id="vouch-msg"></p>
+      </form>
+    </section>
+
+    <!-- ================= THE WALL ================= -->
+    <section class="vouch-wall-section" style="padding-top: 0;">
+      <div class="vouch-wall" id="vouch-wall"></div>
+      <p class="gallery-empty" id="vouch-empty" hidden>No vouches yet — be the first to leave one!</p>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    © 2026 Louis · Roblox UGC Hair Creator
+    <br>
+    <a class="owner-login" href="admin/">Owner login</a>
+  </footer>
+
+  <!-- Floating chat button -->
+  <a class="chat-fab" href="chat.html" aria-label="Chat with Louis">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/></svg>
+    <span class="fab-label">Chat with me</span>
+  </a>
+
+  <script src="js/main.js"></script>
+  <script type="module" src="js/vouches.js"></script>
+</body>
+</html>

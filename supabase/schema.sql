@@ -420,6 +420,59 @@ create trigger auto_reply_trg
   after insert on public.messages
   for each row execute function public.auto_reply_on_first_message();
 
+-- ---------------------------------------------------------------------------
+-- Vouches ("wall of reviews"): signed-in customers leave a 1–5 star rating and
+-- a comment. The wall is PUBLIC so anyone visiting the site (even signed out)
+-- can read the reviews as social proof. Author name/avatar are snapshotted onto
+-- the row so the public wall needs no access to the profiles table.
+-- One vouch per person (they can edit or remove it); the owner can remove any.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.vouches (
+  id            uuid primary key default gen_random_uuid(),
+  author_id     uuid not null unique references public.profiles(id) on delete cascade,
+  author_name   text not null default 'Customer',
+  author_avatar text,
+  rating        int  not null check (rating between 1 and 5),
+  comment       text not null check (char_length(comment) between 1 and 500),
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create index if not exists vouches_created_idx on public.vouches (created_at desc);
+
+-- Anonymous visitors may READ the wall; signed-in users may also write.
+grant usage on schema public to anon;
+grant select on public.vouches to anon;
+grant select, insert, update, delete on public.vouches to authenticated;
+
+alter table public.vouches enable row level security;
+
+drop policy if exists vouches_public_read on public.vouches;
+create policy vouches_public_read on public.vouches
+  for select to anon, authenticated using (true);
+
+-- Insert only your own vouch, and only if you are not banned.
+drop policy if exists vouches_insert_own on public.vouches;
+create policy vouches_insert_own on public.vouches
+  for insert to authenticated
+  with check (
+    author_id = auth.uid()
+    and coalesce((select banned from public.profiles where id = auth.uid()), false) = false
+  );
+
+-- Edit your own vouch (or the owner may edit any, e.g. to tidy wording).
+drop policy if exists vouches_update on public.vouches;
+create policy vouches_update on public.vouches
+  for update to authenticated
+  using (author_id = auth.uid() or public.is_owner())
+  with check (author_id = auth.uid() or public.is_owner());
+
+-- Delete your own vouch, or the owner may remove any (moderation).
+drop policy if exists vouches_delete on public.vouches;
+create policy vouches_delete on public.vouches
+  for delete to authenticated
+  using (author_id = auth.uid() or public.is_owner());
+
 -- ============================================================================
 -- After running this, sign up on your website, then run ONE line to make
 -- yourself the owner (replace the email with the one you signed up with):

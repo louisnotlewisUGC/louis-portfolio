@@ -42,22 +42,34 @@ sees all conversations and can pin/ban/manage orders. The owner-vs-customer UI i
 chosen in `js/chat.js` `boot()` via `me.role`.
 
 ## OPEN ITEMS / things to verify next
-1. **"Customer (sister) saw the owner Conversations dashboard."** Not yet resolved.
-   Two likely causes — check in this order:
-   a. **Same-browser session:** if the test was done in the same browser Louis was
-      logged into, it was still *his* (owner) session — not actually the sister's.
-      Fix: have the sister sign in on her OWN device/browser (or use a private
-      window after Louis signs out).
-   b. **Her profile role is 'owner':** check Supabase → Table editor → `profiles`
-      → her row. If `role = 'owner'`, run:
-      `update public.profiles set role='customer' where id='<her-id>';`
-   Note: even in case (a)/(b), RLS still prevents a real customer from reading
-   other people's data — the concern is only which *UI* renders.
-2. **Confirm the latest `schema.sql` has been fully re-run** in Supabase, so the
-   image-upload column (`messages.image_url`), `chat-images` bucket, `settings`
-   table, and auto-reply trigger all exist.
-3. **Finish the end-to-end test** (see the test script: sister sends "Hi!" →
-   auto-reply fires → images both ways → owner reply/pin/order/ban).
+1. **"Customer (sister) saw the owner Conversations dashboard."** Confirmed via a
+   screenshot she IS seeing the owner dashboard. Since the code always defaults new
+   accounts to `role='customer'` and a DB trigger blocks self-promotion, this means
+   **her `profiles.role` is set to `'owner'`** (either she was tested in Louis's own
+   logged-in browser session, or her row was manually set to owner). Fix — run in
+   Supabase SQL editor (replace with her sign-up email):
+   ```sql
+   update public.profiles set role='customer'
+   where id = (select id from auth.users where email = 'HER-EMAIL');
+   ```
+   Then have her hard-refresh / sign out and back in. (RLS still prevents a real
+   customer from *reading* other people's data regardless; role only picks the UI.)
+2. ✅ **Schema verified applied.** Ran `supabase/verify-schema.sql` — image_url
+   column, chat-images bucket, settings table, auto_reply_trg trigger, and an owner
+   profile all exist. Auto-reply confirmed firing.
+3. **Finish the end-to-end test** (sister sends "Hi!" → auto-reply fires [done] →
+   images both ways → owner reply/pin/order/ban).
+
+## NEW: Vouches wall (added 2026-07-16)
+A public reviews wall where signed-in customers leave a 1–5 star rating + comment.
+- Files: `vouches.html`, `js/vouches.js`, styles in `css/style.css`, nav links added
+  to `index.html` and `portfolio.html`. Table + RLS appended to `supabase/schema.sql`.
+- Public read (even signed-out visitors see it); one vouch per person, editable;
+  owner can delete any (moderation); banned users can't post. Author name/avatar are
+  snapshotted onto the row so the public wall needs no access to `profiles`.
+- **ACTION REQUIRED:** re-run `supabase/schema.sql` in Supabase to create the
+  `vouches` table — until then the wall shows "Couldn't load vouches". (schema.sql
+  is idempotent, safe to re-run.)
 
 ## Resuming on the new machine
 1. Install Claude Code, sign in with the new account.
