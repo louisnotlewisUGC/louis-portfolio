@@ -109,7 +109,10 @@ security definer
 set search_path = public
 as $$
 begin
+  -- auth.uid() is NULL when the change comes from the SQL editor / admin
+  -- (trusted). Only block logged-in NON-owner users from the public API.
   if (new.role is distinct from old.role or new.banned is distinct from old.banned)
+     and auth.uid() is not null
      and not public.is_owner() then
     raise exception 'Only the owner can change role or banned status.';
   end if;
