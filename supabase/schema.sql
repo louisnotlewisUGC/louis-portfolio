@@ -328,14 +328,10 @@ create policy avatars_user_update on storage.objects
 alter table public.messages add column if not exists image_url text;
 alter table public.messages alter column content drop not null;
 
--- Replace the old "content must be 1..1000 chars" rule with one that also
--- accepts image-only messages.
+-- Drop the old "content must be 1..1000 chars" rule. The replacement rule is
+-- defined ONCE at the END of this file — it must come after every attachment
+-- column exists, or re-running this file fails validating existing messages.
 alter table public.messages drop constraint if exists messages_content_check;
-alter table public.messages add constraint messages_content_check
-  check (
-    (content is null or char_length(content) <= 1000)
-    and (coalesce(content, '') <> '' or image_url is not null)
-  );
 
 insert into storage.buckets (id, name, public)
 values ('chat-images', 'chat-images', true)
@@ -481,13 +477,7 @@ create policy vouches_delete on public.vouches
 alter table public.messages add column if not exists file_url  text;
 alter table public.messages add column if not exists file_name text;
 
--- A message may now be text, an image, a file, or any combination of them.
-alter table public.messages drop constraint if exists messages_content_check;
-alter table public.messages add constraint messages_content_check
-  check (
-    (content is null or char_length(content) <= 1000)
-    and (coalesce(content, '') <> '' or image_url is not null or file_url is not null)
-  );
+-- (The message content rule lives at the END of this file — see note above.)
 
 -- Bucket for arbitrary files (public read; users write only into their own
 -- "<user-id>/…" folder). Raise the per-file limit to 30 MB on both buckets.
@@ -735,8 +725,16 @@ alter table public.profiles add column if not exists banner_url text;
 alter table public.messages add column if not exists image_urls text[];
 alter table public.todos    add column if not exists pinned boolean not null default false;
 
--- A message is valid if it has text, a single image (legacy), grouped images,
--- or a file.
+-- THE message content rule (defined once, here, after every attachment column
+-- exists): a message is valid if it has text, a single image (legacy), grouped
+-- images, or a file. First scrub anything no valid rule could describe, so
+-- adding the constraint can never fail against old rows.
+update public.messages set content = left(content, 1000)
+  where char_length(content) > 1000;
+delete from public.messages
+  where coalesce(content, '') = ''
+    and image_url is null and image_urls is null and file_url is null;
+
 alter table public.messages drop constraint if exists messages_content_check;
 alter table public.messages add constraint messages_content_check
   check (
