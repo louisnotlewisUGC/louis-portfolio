@@ -1,10 +1,40 @@
 {
   "pieces": [
-    { "image": "assets/work-01.svg", "title": "Hair Name Here", "detail": "Medium detail", "year": "2026" },
-    { "image": "assets/work-02.svg", "title": "Hair Name Here", "detail": "Detailed & complex", "year": "2026" },
-    { "image": "assets/work-03.svg", "title": "Hair Name Here", "detail": "Simple", "year": "2025" },
-    { "image": "assets/work-04.svg", "title": "Hair Name Here", "detail": "Advanced hair", "year": "2025" },
-    { "image": "assets/work-05.svg", "title": "Hair Name Here", "detail": "Medium detail", "year": "2025" },
-    { "image": "assets/work-06.svg", "title": "Hair Name Here", "detail": "Detailed & complex", "year": "2025" }
+    {
+      "image": "/assets/portfolio/hi.png",
+      "title": "Bubbly Oceanic Pigtail Waves",
+      "detail": "Medium detail",
+      "year": "2026"
+    },
+    {
+      "image": "assets/work-02.svg",
+      "title": "Hair Name Here",
+      "detail": "Detailed & complex",
+      "year": "2026"
+    },
+    {
+      "image": "assets/work-03.svg",
+      "title": "Hair Name Here",
+      "detail": "Simple",
+      "year": "2025"
+    },
+    {
+      "image": "assets/work-04.svg",
+      "title": "Hair Name Here",
+      "detail": "Advanced hair",
+      "year": "2025"
+    },
+    {
+      "image": "assets/work-05.svg",
+      "title": "Hair Name Here",
+      "detail": "Medium detail",
+      "year": "2025"
+    },
+    {
+      "image": "assets/work-06.svg",
+      "title": "Hair Name Here",
+      "detail": "Detailed & complex",
+      "year": "2025"
+    }
   ]
 }
