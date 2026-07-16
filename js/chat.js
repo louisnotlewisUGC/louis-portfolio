@@ -565,6 +565,7 @@ async function openConversation(conv) {
 
   document.getElementById('owner-composer').hidden = false;
   document.getElementById('owner-side').hidden = false;
+  document.getElementById('owner-history-section').hidden = false;
 
   await refreshOwner();
 

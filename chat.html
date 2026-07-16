@@ -130,13 +130,6 @@
         </div>
         <hr class="soft-divider">
         <div class="panel-section">
-          <h3>Message history</h3>
-          <p class="hint">Deleted messages from this chat — only you can see these.</p>
-          <div id="owner-history"></div>
-          <p class="hint" id="owner-history-empty">No deleted messages here.</p>
-        </div>
-        <hr class="soft-divider">
-        <div class="panel-section">
           <h3>My to-do list</h3>
           <form class="todo-add" id="todo-add">
             <input type="text" id="todo-input" placeholder="Add a task…" autocomplete="off" maxlength="200">
@@ -145,6 +138,14 @@
           <div id="todo-list"></div>
         </div>
       </aside>
+
+      <!-- Message history: its own full-width section below the chat (owner only) -->
+      <section class="cloud-card history-panel" id="owner-history-section" hidden>
+        <h3>Message history</h3>
+        <p class="hint">Deleted messages from this chat — only you can see these. You can restore any of them.</p>
+        <div id="owner-history"></div>
+        <p class="hint" id="owner-history-empty">No deleted messages here.</p>
+      </section>
     </div>
 
   </main>

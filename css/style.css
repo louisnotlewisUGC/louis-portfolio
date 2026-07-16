@@ -950,7 +950,11 @@ section { padding: 72px 0; }
 }
 .pinned-bar button:hover { color: var(--ink); }
 
-/* owner-only message history (deleted messages) */
+/* owner-only message history — its own full-width section below the chat */
+.history-panel { grid-column: 1 / -1; padding: 22px 24px; }
+.history-panel h3 { font-size: 1.05rem; margin-bottom: 6px; }
+.history-panel #owner-history { margin-top: 12px; }
+
 .history-item {
   background: var(--sky-050); border: 1px solid var(--sky-200); border-radius: 12px;
   padding: 10px 12px; margin-bottom: 8px; font-size: 0.84rem;
