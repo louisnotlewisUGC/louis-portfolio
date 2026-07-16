@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account · Louis — UGC Hair Creator</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="sky" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+    <div class="cloud cloud-3"></div>
+    <div class="spark spark-1"></div>
+    <div class="spark spark-2"></div>
+  </div>
+
+  <header class="site-header">
+    <nav class="nav-pill">
+      <a class="brand" href="index.html"><span class="dot"></span>Louis</a>
+      <ul class="nav-links">
+        <li><a href="index.html">← Home</a></li>
+        <li><a class="nav-cta" href="chat.html">Chat</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="page auth-page">
+
+    <!-- ============ SIGNED OUT: auth forms ============ -->
+    <div id="auth-shell" class="auth-shell" hidden>
+      <div class="auth-card cloud-card">
+        <div class="auth-tabs">
+          <button class="auth-tab is-active" data-tab="signin" type="button">Sign in</button>
+          <button class="auth-tab" data-tab="signup" type="button">Create account</button>
+        </div>
+
+        <!-- Sign in -->
+        <form id="signin-form" class="auth-form">
+          <h2>Welcome back</h2>
+          <label>Email
+            <input type="email" name="email" autocomplete="email" required>
+          </label>
+          <label>Password
+            <input type="password" name="password" autocomplete="current-password" required>
+          </label>
+          <button class="btn btn-primary" type="submit">Sign in</button>
+          <button type="button" class="link-btn" id="forgot-link">Forgot your password?</button>
+          <p class="form-msg" id="signin-msg" role="alert"></p>
+        </form>
+
+        <!-- Sign up -->
+        <form id="signup-form" class="auth-form" hidden>
+          <h2>Create your account</h2>
+          <p class="auth-intro">Make an account to chat with me about your commission and track your order.</p>
+          <label>Display name
+            <input type="text" name="username" autocomplete="nickname" maxlength="32" placeholder="What should I call you?" required>
+          </label>
+          <label>Email
+            <input type="email" name="email" autocomplete="email" required>
+          </label>
+          <label>Password
+            <input type="password" name="password" autocomplete="new-password" minlength="6" placeholder="At least 6 characters" required>
+          </label>
+          <button class="btn btn-primary" type="submit">Create account</button>
+          <p class="form-msg" id="signup-msg" role="alert"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- ============ SIGNED IN: profile editor ============ -->
+    <div id="profile-shell" class="auth-shell" hidden>
+      <div class="auth-card cloud-card">
+        <h2>Your profile</h2>
+        <div class="profile-avatar-row">
+          <img id="profile-avatar" class="profile-avatar" src="assets/avatar.svg" alt="Your avatar">
+          <div>
+            <label class="btn btn-soft file-btn">
+              Change picture
+              <input type="file" id="avatar-input" accept="image/*" hidden>
+            </label>
+            <p class="hint">Square images look best.</p>
+          </div>
+        </div>
+        <label>Display name
+          <input type="text" id="username-input" maxlength="32">
+        </label>
+        <div class="profile-actions">
+          <button class="btn btn-primary" id="save-profile" type="button">Save changes</button>
+          <a class="btn btn-soft" href="chat.html">Go to chat →</a>
+        </div>
+        <p class="form-msg" id="profile-msg" role="alert"></p>
+        <hr class="soft-divider">
+        <button class="link-btn danger" id="signout-btn" type="button">Sign out</button>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="site-footer">
+    © 2026 Louis · Roblox UGC Hair Creator
+  </footer>
+
+  <script type="module" src="js/account.js"></script>
+</body>
+</html>

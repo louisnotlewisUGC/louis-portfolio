@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat · Louis — UGC Hair Creator</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="chat-body">
+
+  <div class="sky" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-3"></div>
+  </div>
+
+  <header class="site-header">
+    <nav class="nav-pill">
+      <a class="brand" href="index.html"><span class="dot"></span>Louis</a>
+      <ul class="nav-links">
+        <li><a href="index.html">← Home</a></li>
+        <li id="nav-account-slot"><a class="nav-cta" href="account.html">Account</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="page chat-page">
+
+    <!-- ============ SIGNED OUT ============ -->
+    <div id="signed-out" class="chat-signed-out cloud-card" hidden>
+      <h2>Sign in to chat with me</h2>
+      <p>Create a free account (or sign in) to message me about your commission and follow your order.</p>
+      <a class="btn btn-primary" href="account.html">Sign in / Create account</a>
+    </div>
+
+    <!-- ============ CUSTOMER VIEW ============ -->
+    <div id="customer-view" class="chat-customer" hidden>
+      <section class="chat-window cloud-card">
+        <div class="chat-window-head">
+          <img src="assets/avatar.svg" alt="" class="chat-head-avatar">
+          <div>
+            <strong>Louis</strong>
+            <span class="chat-head-sub">UGC Hair Creator</span>
+          </div>
+        </div>
+        <div class="chat-messages" id="cust-messages"></div>
+        <form class="chat-composer" id="cust-composer">
+          <input type="text" id="cust-input" maxlength="1000" placeholder="Type your message…" autocomplete="off" required>
+          <button class="btn btn-primary" type="submit">Send</button>
+        </form>
+      </section>
+      <aside class="order-panel cloud-card">
+        <h3>Your orders</h3>
+        <p class="hint" id="cust-orders-empty">No orders yet. Once we agree on a commission, I'll add it here so you can track it.</p>
+        <div id="cust-orders"></div>
+      </aside>
+    </div>
+
+    <!-- ============ OWNER DASHBOARD ============ -->
+    <div id="owner-view" class="chat-owner" hidden>
+      <!-- conversations sidebar -->
+      <aside class="conv-list cloud-card">
+        <h3>Conversations</h3>
+        <div id="conv-items"></div>
+        <p class="hint" id="conv-empty" hidden>No customer messages yet.</p>
+      </aside>
+
+      <!-- chat window -->
+      <section class="chat-window cloud-card">
+        <div class="chat-window-head" id="owner-chat-head">
+          <span class="chat-head-sub">Select a conversation</span>
+        </div>
+        <div class="chat-messages" id="owner-messages"></div>
+        <form class="chat-composer" id="owner-composer" hidden>
+          <input type="text" id="owner-input" maxlength="1000" placeholder="Reply…" autocomplete="off" required>
+          <button class="btn btn-primary" type="submit">Send</button>
+        </form>
+      </section>
+
+      <!-- orders + todos panel -->
+      <aside class="order-panel cloud-card" id="owner-side" hidden>
+        <div class="panel-section">
+          <div class="panel-head">
+            <h3>Orders</h3>
+            <button class="btn btn-soft btn-sm" id="add-order" type="button">+ Add</button>
+          </div>
+          <div id="owner-orders"></div>
+        </div>
+        <hr class="soft-divider">
+        <div class="panel-section">
+          <h3>My to-do list</h3>
+          <form class="todo-add" id="todo-add">
+            <input type="text" id="todo-input" placeholder="Add a task…" autocomplete="off" maxlength="200">
+            <button class="btn btn-soft btn-sm" type="submit">Add</button>
+          </form>
+          <div id="todo-list"></div>
+        </div>
+      </aside>
+    </div>
+
+  </main>
+
+  <script type="module" src="js/chat.js"></script>
+</body>
+</html>
