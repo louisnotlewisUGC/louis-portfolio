@@ -113,14 +113,25 @@ document.getElementById('forgot-link').addEventListener('click', async () => {
 
 // ---- Profile editor -------------------------------------------------------
 let currentProfile = null;
+let profileTries = 0;
 
 async function enterProfile() {
-  hide(authShell);
   currentProfile = await getProfile();
-  if (!currentProfile) { // profile row may lag a moment after first signup
-    setTimeout(enterProfile, 800);
+  if (!currentProfile) {
+    // Profile row can lag a moment right after first signup — retry a few
+    // times, but don't leave the page blank forever if it truly can't load.
+    profileTries += 1;
+    if (profileTries < 4) { setTimeout(enterProfile, 800); return; }
+    hide(profileShell);
+    show(authShell);
+    setMsg('signin-msg',
+      'You’re signed in, but your profile couldn’t load. The database access ' +
+      'grants may be missing — see SETUP-CHAT.md (the "grant … to authenticated" step).',
+      'error');
     return;
   }
+  profileTries = 0;
+  hide(authShell);
   document.getElementById('username-input').value = currentProfile.username || '';
   if (currentProfile.avatar_url) {
     document.getElementById('profile-avatar').src = currentProfile.avatar_url;
