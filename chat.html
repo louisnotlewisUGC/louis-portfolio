@@ -48,6 +48,7 @@
           </div>
         </div>
         <div class="chat-messages" id="cust-messages"></div>
+        <div class="attach-strip" id="cust-attach-strip" hidden></div>
         <form class="chat-composer" id="cust-composer">
           <label class="chat-attach" title="Attach files (up to 30 MB each)">
             <input type="file" id="cust-file" multiple hidden>
@@ -85,6 +86,7 @@
           <span class="chat-head-sub">Select a conversation</span>
         </div>
         <div class="chat-messages" id="owner-messages"></div>
+        <div class="attach-strip" id="owner-attach-strip" hidden></div>
         <form class="chat-composer" id="owner-composer" hidden>
           <label class="chat-attach" title="Attach files (up to 30 MB each)">
             <input type="file" id="owner-file" multiple hidden>
@@ -139,21 +141,31 @@
 
       <!-- Message history: its own full-width section below the chat (owner only) -->
       <section class="cloud-card history-panel" id="owner-history-section" hidden>
-        <h3>Message history</h3>
-        <p class="hint">Deleted messages from this chat — only you can see these. You can restore any of them.</p>
-        <div id="owner-history"></div>
-        <p class="hint" id="owner-history-empty">No deleted messages here.</p>
+        <div class="panel-head">
+          <h3>Message history</h3>
+          <button class="btn btn-soft btn-sm" id="history-toggle" type="button">Hide</button>
+        </div>
+        <div id="history-body">
+          <p class="hint">Deleted messages from this chat — only you can see these. You can restore any of them.</p>
+          <div id="owner-history"></div>
+          <p class="hint" id="owner-history-empty">No deleted messages here.</p>
+        </div>
       </section>
 
       <!-- To-do list: its own full-width section (owner only) -->
       <section class="cloud-card todo-panel" id="owner-todo-section">
-        <h3>My to-do list</h3>
-        <form class="todo-add" id="todo-add">
-          <input type="text" id="todo-input" placeholder="Task title…" autocomplete="off" maxlength="120" required>
-          <input type="text" id="todo-desc" placeholder="Description (optional)…" autocomplete="off" maxlength="400">
-          <button class="btn btn-soft btn-sm" type="submit">Add</button>
-        </form>
-        <div id="todo-list"></div>
+        <div class="panel-head">
+          <h3>My to-do list</h3>
+          <button class="btn btn-soft btn-sm" id="todo-toggle" type="button">Hide</button>
+        </div>
+        <div id="todo-body">
+          <form class="todo-add" id="todo-add">
+            <input type="text" id="todo-input" placeholder="Task title…" autocomplete="off" maxlength="120" required>
+            <input type="text" id="todo-desc" placeholder="Description (optional)…" autocomplete="off" maxlength="400">
+            <button class="btn btn-soft btn-sm" type="submit">Add</button>
+          </form>
+          <div id="todo-list"></div>
+        </div>
       </section>
     </div>
 

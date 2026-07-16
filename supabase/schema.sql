@@ -733,6 +733,7 @@ end $$;
 -- ---------------------------------------------------------------------------
 alter table public.profiles add column if not exists banner_url text;
 alter table public.messages add column if not exists image_urls text[];
+alter table public.todos    add column if not exists pinned boolean not null default false;
 
 -- A message is valid if it has text, a single image (legacy), grouped images,
 -- or a file.

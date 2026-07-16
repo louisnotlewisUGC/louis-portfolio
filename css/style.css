@@ -1072,6 +1072,42 @@ section { padding: 72px 0; }
 }
 .profile-card-close:hover { background: #fff; }
 
+/* ---- staged attachments (wait in the composer until Send) ---- */
+.attach-strip {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 10px 16px 0; border-top: 1px solid var(--sky-100); background: #fff;
+}
+.attach-item {
+  position: relative; display: inline-flex; align-items: center;
+  background: var(--sky-050); border: 1px solid var(--sky-200); border-radius: 10px;
+  overflow: visible;
+}
+.attach-item img {
+  width: 58px; height: 58px; object-fit: cover; border-radius: 9px; display: block;
+}
+.attach-file-name {
+  max-width: 150px; padding: 8px 12px; font-size: 0.78rem; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.attach-remove {
+  position: absolute; top: -7px; right: -7px; width: 20px; height: 20px;
+  border: none; border-radius: 999px; cursor: pointer; font-size: 0.68rem;
+  background: var(--ink); color: #fff; line-height: 1; box-shadow: var(--shadow-soft);
+}
+.attach-remove:hover { background: #c0392b; }
+
+/* ---- to-do pin ---- */
+.todo-actions { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.todo-pin {
+  background: none; border: none; cursor: pointer; padding: 3px;
+  border-radius: 8px; color: var(--ink-soft); display: grid; place-items: center;
+}
+.todo-pin svg { width: 15px; height: 15px; }
+.todo-pin:hover { background: var(--sky-100); color: var(--ink); }
+.todo-pin.is-active { color: var(--peach-deep); }
+.todo-row.pinned { background: var(--cream); border-radius: 10px; padding-left: 8px; padding-right: 8px; }
+.todo-row .msg-pin-tag { font-size: 0.72rem; }
+
 /* ---- profile page banner ---- */
 .profile-banner {
   height: 110px; border-radius: 14px; margin-bottom: 6px;

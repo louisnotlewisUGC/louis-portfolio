@@ -152,6 +152,14 @@ async function enterProfile() {
   document.getElementById('acc-role').textContent =
     currentProfile.role === 'owner' ? 'Owner' : 'Customer';
 
+  // Self-check: if the newest schema hasn't been applied, say so loudly instead
+  // of letting the bio/banner silently fail for everyone.
+  if (!('description' in currentProfile) || !('banner_url' in currentProfile)) {
+    setMsg('profile-msg',
+      'Bio & banner are not enabled yet — the site owner needs to run the ' +
+      'newest supabase/schema.sql. Everything else works.', 'error');
+  }
+
   show(profileShell);
 }
 

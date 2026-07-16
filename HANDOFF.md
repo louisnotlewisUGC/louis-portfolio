@@ -152,6 +152,23 @@ A public reviews wall where signed-in customers leave a 1–5 star rating + comm
 - **ACTION REQUIRED:** re-run `supabase/schema.sql` (adds `profiles.banner_url`,
   `messages.image_urls`, updated messages content constraint + guard trigger).
 
+## NEW: staging + toggles batch (added 2026-07-16, third pass)
+- **Discord-style attachment staging:** picking files no longer sends instantly.
+  They wait as thumbnails/chips in a strip above the composer (✕ to remove) and
+  go out together with the text when Send/Enter is pressed.
+- **Hide/Show toggles** for Message history and To-do list sections (persisted
+  in localStorage, same as the emoji one).
+- **To-do pinning:** `todos.pinned` column; pin button on each row, pinned tasks
+  float to the top with a cream highlight.
+- **Owner pfp fix:** the customer chat header was hardcoded to avatar.svg — now
+  it loads the owner's real profile (avatar + name) and opens his profile card.
+- **Self-diagnosis:** account page shows a clear message when the DB is missing
+  the description/banner columns; todo add + grouped images fall back gracefully
+  when their columns are missing.
+- WHY things "didn't work" on the live site: the last several commits were never
+  pushed, and schema.sql wasn't re-run. Both are needed: push latest main AND
+  run schema.sql in the Supabase SQL editor.
+
 ## Resuming on the new machine
 1. Install Claude Code, sign in with the new account.
 2. Clone the repo: `git clone https://github.com/louischoiart-maker/louis-portfolio.git`

@@ -113,6 +113,20 @@ async function initCustomer() {
   if (!conv) return;
   custConvId = conv.id;
 
+  // The chat header shows Louis's REAL profile (avatar updates when he changes
+  // his pfp), and clicking it opens his profile card.
+  const { data: owners } = await supabase
+    .from('profiles').select('*').eq('role', 'owner').limit(1);
+  const ownerProf = owners && owners[0];
+  if (ownerProf) {
+    profileCache[ownerProf.id] = ownerProf;
+    const head = document.querySelector('#customer-view .chat-window-head');
+    head.querySelector('img').src = ownerProf.avatar_url || 'assets/avatar.svg';
+    head.querySelector('strong').textContent = ownerProf.username || 'Louis';
+    head.style.cursor = 'pointer';
+    head.addEventListener('click', () => openProfileCard(ownerProf));
+  }
+
   await refreshCustomer();
   await loadCustomerOrders(conv.id);
 
@@ -128,19 +142,14 @@ async function initCustomer() {
 
   const form = document.getElementById('cust-composer');
   const input = document.getElementById('cust-input');
-  form.addEventListener('submit', async (e) => {
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const content = input.value.trim();
-    if (!content) return;
-    input.value = '';
-    const { error } = await supabase.from('messages').insert({
-      conversation_id: conv.id, sender_id: me.id, content,
-    });
-    if (error) alert(error.message);
+    handleComposerSubmit(conv.id, input);
   });
 
+  // picking files stages them in the strip — they send with the Send button
   document.getElementById('cust-file').addEventListener('change', (e) =>
-    sendAttachment(e.target, conv.id));
+    stageFiles(e.target));
 
   wireEmojiPicker('cust-emoji-btn', 'cust-emoji-pop', 'cust-input');
 }
@@ -415,32 +424,85 @@ async function uploadToBucket(file) {
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
 
-async function sendAttachment(fileInput, convId) {
-  const files = Array.from(fileInput.files || []);
-  fileInput.value = '';
-  const ok = files.filter((f) => {
-    if (f.size > MAX_UPLOAD) { alert('"' + f.name + '" is over 30 MB — skipped.'); return false; }
-    return true;
+// ---------------------------------------------------------------------------
+// Staged attachments (Discord-style): picking files does NOT send them. They
+// wait as little previews above the composer until you press Send / Enter,
+// then go out together with whatever text is in the box.
+// ---------------------------------------------------------------------------
+let stagedFiles = []; // File objects waiting in the composer
+
+function attachStripEl() {
+  return document.getElementById(me.role === 'owner' ? 'owner-attach-strip' : 'cust-attach-strip');
+}
+
+function stageFiles(fileInput) {
+  Array.from(fileInput.files || []).forEach((f) => {
+    if (f.size > MAX_UPLOAD) { alert('"' + f.name + '" is over 30 MB — skipped.'); return; }
+    stagedFiles.push(f);
   });
-  if (!ok.length) return;
+  fileInput.value = '';
+  renderAttachStrip();
+}
 
-  // the composer text rides along as the caption
-  const inputEl = document.getElementById(me.role === 'owner' ? 'owner-input' : 'cust-input');
-  const caption = inputEl ? inputEl.value.trim() : '';
-  if (inputEl) inputEl.value = '';
+function renderAttachStrip() {
+  const strip = attachStripEl();
+  if (!strip) return;
+  strip.innerHTML = '';
+  strip.hidden = stagedFiles.length === 0;
 
-  const images = ok.filter((f) => f.type.startsWith('image/'));
-  const others = ok.filter((f) => !f.type.startsWith('image/'));
+  stagedFiles.forEach((f, i) => {
+    const item = document.createElement('div');
+    item.className = 'attach-item';
+    if (f.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(f);
+      img.onload = () => URL.revokeObjectURL(img.src);
+      item.appendChild(img);
+    } else {
+      const chip = document.createElement('span');
+      chip.className = 'attach-file-name';
+      chip.textContent = f.name;
+      item.appendChild(chip);
+    }
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'attach-remove';
+    del.title = 'Remove';
+    del.textContent = '✕';
+    del.addEventListener('click', () => { stagedFiles.splice(i, 1); renderAttachStrip(); });
+    item.appendChild(del);
+    strip.appendChild(item);
+  });
+}
 
+// Send button / Enter: text alone, or text + the staged files together.
+async function handleComposerSubmit(convId, inputEl) {
+  const text = inputEl.value.trim();
+  const files = stagedFiles;
+  if (!text && !files.length) return;
+  inputEl.value = '';
+  stagedFiles = [];
+  renderAttachStrip();
+
+  if (!files.length) {
+    const { error } = await supabase.from('messages').insert({
+      conversation_id: convId, sender_id: me.id, content: text,
+    });
+    if (error) alert(error.message);
+    return;
+  }
+
+  const images = files.filter((f) => f.type.startsWith('image/'));
+  const others = files.filter((f) => !f.type.startsWith('image/'));
   const label = images.length
     ? (images.length === 1 ? 'image' : images.length + ' images')
-    : ok[0].name;
+    : files[0].name;
   const pending = { label, boxId: myBoxId() };
   pendingUploads.push(pending);
   await myRefresh(); // show the loading placeholder
 
   try {
-    // all images share one bubble, caption underneath
+    // all images share one bubble, the text underneath as the caption
     if (images.length) {
       const urls = [];
       for (const f of images) {
@@ -448,16 +510,28 @@ async function sendAttachment(fileInput, convId) {
         if (u) urls.push(u);
       }
       if (urls.length) {
-        const { error } = await supabase.from('messages').insert({
+        let { error } = await supabase.from('messages').insert({
           conversation_id: convId, sender_id: me.id,
-          content: caption || null, image_urls: urls,
+          content: text || null, image_urls: urls,
         });
+        // Database doesn't have image_urls yet (schema.sql not re-run) —
+        // fall back to one bubble per image so nothing is lost.
+        if (error && /image_urls/i.test(error.message)) {
+          let cap = text || null;
+          for (const u of urls) {
+            ({ error } = await supabase.from('messages').insert({
+              conversation_id: convId, sender_id: me.id, content: cap, image_url: u,
+            }));
+            cap = null;
+            if (error) break;
+          }
+        }
         if (error) alert(error.message);
       }
     }
-    // non-image files still go one per message; the caption tags along on the
-    // first one when there were no images to carry it
-    let fileCaption = images.length ? null : (caption || null);
+    // non-image files go one per message; the text tags along on the first
+    // when there were no images to carry it
+    let fileCaption = images.length ? null : (text || null);
     for (const f of others) {
       const u = await uploadToBucket(f);
       if (!u) continue;
@@ -627,26 +701,22 @@ async function initOwner() {
       () => loadConversations())
     .subscribe();
 
-  document.getElementById('owner-composer').addEventListener('submit', async (e) => {
+  document.getElementById('owner-composer').addEventListener('submit', (e) => {
     e.preventDefault();
     if (!activeConv) return;
-    const input = document.getElementById('owner-input');
-    const content = input.value.trim();
-    if (!content) return;
-    input.value = '';
-    const { error } = await supabase.from('messages').insert({
-      conversation_id: activeConv.id, sender_id: me.id, content,
-    });
-    if (error) alert(error.message);
+    handleComposerSubmit(activeConv.id, document.getElementById('owner-input'));
   });
 
+  // picking files stages them in the strip — they send with the Send button
   document.getElementById('owner-file').addEventListener('change', (e) => {
     if (!activeConv) return;
-    sendAttachment(e.target, activeConv.id);
+    stageFiles(e.target);
   });
 
   wireEmojiPicker('owner-emoji-btn', 'owner-emoji-pop', 'owner-input');
   initEmojiManager();
+  wireCollapsible('history-toggle', 'history-body', 'historyPanelHidden');
+  wireCollapsible('todo-toggle', 'todo-body', 'todoPanelHidden');
 
   document.getElementById('conv-search').addEventListener('input', renderConvList);
   document.getElementById('add-order').addEventListener('click', addOrder);
@@ -654,24 +724,27 @@ async function initOwner() {
   document.getElementById('autoreply-save').addEventListener('click', saveAutoReply);
 }
 
+// Hide/Show toggle for a panel section; the choice sticks across visits.
+function wireCollapsible(toggleId, bodyId, storageKey) {
+  const toggle = document.getElementById(toggleId);
+  const body = document.getElementById(bodyId);
+  if (!toggle || !body) return;
+  const apply = (hidden) => {
+    body.hidden = hidden;
+    toggle.textContent = hidden ? 'Show' : 'Hide';
+    try { localStorage.setItem(storageKey, hidden ? '1' : ''); } catch (e) {}
+  };
+  let saved = false;
+  try { saved = localStorage.getItem(storageKey) === '1'; } catch (e) {}
+  apply(saved);
+  toggle.addEventListener('click', () => apply(!body.hidden));
+}
+
 // ---- Custom emoji manager (owner only) ------------------------------------
 function initEmojiManager() {
   renderEmojiManage();
   document.getElementById('emoji-add').addEventListener('submit', addEmoji);
-
-  // Hide/unhide the whole emoji block so 50+ chips don't swallow the panel.
-  // The choice sticks across visits (localStorage).
-  const toggle = document.getElementById('emoji-toggle');
-  const body = document.getElementById('emoji-body');
-  const apply = (hidden) => {
-    body.hidden = hidden;
-    toggle.textContent = hidden ? 'Show' : 'Hide';
-    try { localStorage.setItem('emojiPanelHidden', hidden ? '1' : ''); } catch (e) {}
-  };
-  let saved = false;
-  try { saved = localStorage.getItem('emojiPanelHidden') === '1'; } catch (e) {}
-  apply(saved);
-  toggle.addEventListener('click', () => apply(!body.hidden));
+  wireCollapsible('emoji-toggle', 'emoji-body', 'emojiPanelHidden');
 }
 
 function renderEmojiManage() {
@@ -984,22 +1057,43 @@ async function addOrder() {
 // ---- To-dos (owner only) ---------------------------------------------------
 async function loadTodos() {
   const { data } = await supabase.from('todos').select('*').order('created_at');
+  const list = data || [];
+  // pinned tasks float to the top
+  list.sort((a, b) => {
+    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return new Date(a.created_at) - new Date(b.created_at);
+  });
   const wrap = document.getElementById('todo-list');
   wrap.innerHTML = '';
-  (data || []).forEach((t) => wrap.appendChild(todoRow(t)));
+  list.forEach((t) => wrap.appendChild(todoRow(t)));
 }
 
 function todoRow(t) {
   const row = document.createElement('div');
-  row.className = 'todo-row' + (t.done ? ' done' : '');
+  row.className = 'todo-row' + (t.done ? ' done' : '') + (t.pinned ? ' pinned' : '');
   const desc = t.description ? '<span class="todo-desc">' + esc(t.description) + '</span>' : '';
   row.innerHTML =
     '<label><input type="checkbox"' + (t.done ? ' checked' : '') + '>' +
-      '<span class="todo-text"><span class="todo-title">' + esc(t.content) + '</span>' + desc + '</span></label>' +
-    '<button class="link-btn danger todo-del">✕</button>';
+      '<span class="todo-text"><span class="todo-title">' +
+        (t.pinned ? '<span class="msg-pin-tag">📌</span> ' : '') + esc(t.content) +
+      '</span>' + desc + '</span></label>' +
+    '<span class="todo-actions">' +
+      '<button class="todo-pin' + (t.pinned ? ' is-active' : '') + '" type="button" title="' +
+        (t.pinned ? 'Unpin' : 'Pin') + '">' + ICONS.pin + '</button>' +
+      '<button class="link-btn danger todo-del" type="button">✕</button>' +
+    '</span>';
   row.querySelector('input').addEventListener('change', async (e) => {
     await supabase.from('todos').update({ done: e.target.checked }).eq('id', t.id);
     row.classList.toggle('done', e.target.checked);
+  });
+  row.querySelector('.todo-pin').addEventListener('click', async () => {
+    const { error } = await supabase.from('todos').update({ pinned: !t.pinned }).eq('id', t.id);
+    if (error) {
+      return alert(/pinned/i.test(error.message)
+        ? 'Pinning needs the newest schema.sql run in Supabase first.'
+        : error.message);
+    }
+    await loadTodos();
   });
   row.querySelector('.todo-del').addEventListener('click', async () => {
     await supabase.from('todos').delete().eq('id', t.id);
@@ -1017,10 +1111,14 @@ async function addTodo(e) {
   const description = descInput.value.trim() || null;
   input.value = '';
   descInput.value = '';
-  const { data, error } = await supabase.from('todos')
+  let { error } = await supabase.from('todos')
     .insert({ content, description }).select().single();
+  // description column not in the database yet — save the title at least
+  if (error && /description/i.test(error.message)) {
+    ({ error } = await supabase.from('todos').insert({ content }).select().single());
+  }
   if (error) return alert(error.message);
-  document.getElementById('todo-list').appendChild(todoRow(data));
+  await loadTodos();
 }
 
 // ---- Badges ----------------------------------------------------------------
