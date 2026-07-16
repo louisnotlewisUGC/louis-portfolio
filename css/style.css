@@ -834,7 +834,7 @@ section { padding: 72px 0; }
 .msg-time { font-size: 0.68rem; color: var(--ink-soft); align-self: flex-end; }
 .msg-row.mine .msg-time { color: var(--ink); opacity: 0.65; }
 
-.chat-composer { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--sky-100); }
+.chat-composer { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--sky-100); position: relative; }
 .chat-composer input[type="text"] {
   flex: 1; font-family: var(--font-body); font-size: 1rem;
   border: 1.5px solid var(--sky-200); border-radius: 999px;
@@ -855,6 +855,57 @@ section { padding: 72px 0; }
   display: block; background: var(--sky-100);
 }
 .msg-image-link { display: inline-block; }
+
+/* File attachment message */
+.msg-file {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 4px;
+  background: var(--sky-050); border: 1px solid var(--sky-200); border-radius: 10px;
+  padding: 8px 12px; text-decoration: none; color: var(--ink);
+  font-size: 0.86rem; max-width: 230px;
+}
+.msg-file:hover { background: var(--sky-100); }
+.msg-file svg { width: 20px; height: 20px; flex-shrink: 0; color: var(--sky-500); }
+.msg-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-row.mine .msg-file { background: rgba(255, 255, 255, 0.55); border-color: rgba(255, 255, 255, 0.7); }
+
+/* Custom emoji inline in a message */
+.chat-emoji { height: 1.4em; width: auto; vertical-align: -0.32em; display: inline-block; }
+
+/* Emoji button reset (it reuses .chat-attach for shape) */
+.chat-emoji-btn { border: none; font: inherit; }
+
+/* Emoji picker popover */
+.emoji-popover {
+  position: absolute; bottom: 62px; left: 14px; z-index: 30;
+  width: 244px; max-height: 210px; overflow-y: auto;
+  background: #fff; border-radius: 16px; box-shadow: var(--shadow-hover);
+  padding: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;
+}
+.emoji-popover button {
+  background: none; border: none; cursor: pointer; padding: 4px; border-radius: 8px;
+  line-height: 0;
+}
+.emoji-popover button:hover { background: var(--sky-100); }
+.emoji-popover img { height: 28px; width: 28px; object-fit: contain; }
+.emoji-pop-empty { color: var(--ink-soft); font-size: 0.82rem; width: 100%; margin: 4px; }
+
+/* Owner emoji manager */
+.emoji-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.emoji-add input[type="text"] {
+  flex: 1; min-width: 120px; font-family: var(--font-body);
+  border: 1.5px solid var(--sky-200); border-radius: 10px;
+  padding: 8px 12px; background: #fff; font-size: 0.9rem;
+}
+.emoji-add input[type="text"]:focus { outline: none; border-color: var(--sky-400); }
+.emoji-manage { display: flex; flex-wrap: wrap; gap: 8px; }
+.emoji-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--sky-050); border: 1px solid var(--sky-200);
+  border-radius: 10px; padding: 4px 6px 4px 8px; font-size: 0.8rem; color: var(--ink-soft);
+}
+.emoji-chip img { height: 22px; width: 22px; object-fit: contain; }
+.emoji-chip button { background: none; border: none; cursor: pointer; color: var(--peach-deep); font-size: 0.9rem; line-height: 1; }
+.emoji-chip button:hover { color: var(--peach-deep); }
 
 .autoreply-box {
   width: 100%; font-family: var(--font-body); font-size: 0.9rem;

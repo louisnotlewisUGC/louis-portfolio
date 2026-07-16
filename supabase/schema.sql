@@ -473,6 +473,87 @@ create policy vouches_delete on public.vouches
   for delete to authenticated
   using (author_id = auth.uid() or public.is_owner());
 
+-- ---------------------------------------------------------------------------
+-- Chat file attachments: any file type, up to 30 MB. Images still preview
+-- inline (image_url); other files show as a download link (file_url/file_name).
+-- ---------------------------------------------------------------------------
+
+alter table public.messages add column if not exists file_url  text;
+alter table public.messages add column if not exists file_name text;
+
+-- A message may now be text, an image, a file, or any combination of them.
+alter table public.messages drop constraint if exists messages_content_check;
+alter table public.messages add constraint messages_content_check
+  check (
+    (content is null or char_length(content) <= 1000)
+    and (coalesce(content, '') <> '' or image_url is not null or file_url is not null)
+  );
+
+-- Bucket for arbitrary files (public read; users write only into their own
+-- "<user-id>/…" folder). Raise the per-file limit to 30 MB on both buckets.
+insert into storage.buckets (id, name, public)
+values ('chat-files', 'chat-files', true)
+on conflict (id) do nothing;
+update storage.buckets set file_size_limit = 31457280
+  where id in ('chat-files', 'chat-images');
+
+drop policy if exists chat_files_read on storage.objects;
+create policy chat_files_read on storage.objects
+  for select using (bucket_id = 'chat-files');
+
+drop policy if exists chat_files_write on storage.objects;
+create policy chat_files_write on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'chat-files' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ---------------------------------------------------------------------------
+-- Custom emojis (Discord-style): the owner uploads little images with a
+-- :shortcode: name. Everyone signed in can see and use them in chat; only the
+-- owner can add or remove them.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.emojis (
+  id         uuid primary key default gen_random_uuid(),
+  name       text not null unique check (name ~ '^[a-z0-9_]{1,32}$'),
+  image_url  text not null,
+  created_at timestamptz not null default now()
+);
+
+grant select, insert, delete on public.emojis to authenticated;
+alter table public.emojis enable row level security;
+
+drop policy if exists emojis_read on public.emojis;
+create policy emojis_read on public.emojis
+  for select to authenticated using (true);
+
+drop policy if exists emojis_insert_owner on public.emojis;
+create policy emojis_insert_owner on public.emojis
+  for insert to authenticated with check (public.is_owner());
+
+drop policy if exists emojis_delete_owner on public.emojis;
+create policy emojis_delete_owner on public.emojis
+  for delete to authenticated using (public.is_owner());
+
+-- Bucket for emoji images (public read; only the owner uploads/removes). 1 MB cap.
+insert into storage.buckets (id, name, public)
+values ('chat-emojis', 'chat-emojis', true)
+on conflict (id) do nothing;
+update storage.buckets set file_size_limit = 1048576 where id = 'chat-emojis';
+
+drop policy if exists chat_emojis_read on storage.objects;
+create policy chat_emojis_read on storage.objects
+  for select using (bucket_id = 'chat-emojis');
+
+drop policy if exists chat_emojis_write on storage.objects;
+create policy chat_emojis_write on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'chat-emojis' and public.is_owner());
+
+drop policy if exists chat_emojis_delete on storage.objects;
+create policy chat_emojis_delete on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'chat-emojis' and public.is_owner());
+
 -- ============================================================================
 -- After running this, sign up on your website, then run ONE line to make
 -- yourself the owner (replace the email with the one you signed up with):

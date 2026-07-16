@@ -12,11 +12,29 @@ const ownerView = document.getElementById('owner-view');
 
 let me = null;              // my profile row
 const profileCache = {};    // id -> profile (for names/avatars)
+let emojiMap = {};          // shortcode name -> image url
+let emojiList = [];         // [{name, image_url}] for the picker
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
+}
+
+// Escape text, then swap any :shortcode: for its custom-emoji image.
+function renderContent(text) {
+  return esc(text).replace(/:([a-z0-9_]+):/g, (whole, name) => (
+    emojiMap[name]
+      ? '<img class="chat-emoji" src="' + esc(emojiMap[name]) + '" alt=":' + name + ':" title=":' + name + ':">'
+      : whole
+  ));
+}
+
+async function loadEmojis() {
+  const { data } = await supabase.from('emojis').select('*').order('name');
+  emojiList = data || [];
+  emojiMap = {};
+  emojiList.forEach((e) => { emojiMap[e.name] = e.image_url; });
 }
 function fmtTime(ts) {
   const d = new Date(ts);
@@ -48,6 +66,8 @@ async function boot() {
 
   const slot = document.getElementById('nav-account-slot');
   slot.innerHTML = '<a class="nav-cta" href="account.html">' + esc(me.username) + '</a>';
+
+  await loadEmojis();
 
   if (me.role === 'owner') initOwner();
   else initCustomer();
@@ -84,8 +104,10 @@ async function initCustomer() {
     if (error) alert(error.message);
   });
 
-  document.getElementById('cust-image').addEventListener('change', (e) =>
-    sendImage(e.target, conv.id));
+  document.getElementById('cust-file').addEventListener('change', (e) =>
+    sendAttachment(e.target, conv.id));
+
+  wireEmojiPicker('cust-emoji-btn', 'cust-emoji-pop', 'cust-input');
 }
 
 async function ensureConversation() {
@@ -146,10 +168,16 @@ function appendMessage(boxId, m) {
   row.className = 'msg-row ' + (mine ? 'mine' : 'theirs');
 
   let body = '';
-  if (m.content) body += '<span class="msg-text">' + esc(m.content) + '</span>';
+  if (m.content) body += '<span class="msg-text">' + renderContent(m.content) + '</span>';
   if (m.image_url) {
     body += '<a class="msg-image-link" href="' + esc(m.image_url) + '" target="_blank" rel="noopener">' +
       '<img class="msg-image" src="' + esc(m.image_url) + '" alt="shared image"></a>';
+  }
+  if (m.file_url) {
+    const fname = m.file_name || 'file';
+    body += '<a class="msg-file" href="' + esc(m.file_url) + '" download="' + esc(fname) + '" target="_blank" rel="noopener">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>' +
+      '<span>' + esc(fname) + '</span></a>';
   }
 
   row.innerHTML =
@@ -162,24 +190,90 @@ function appendMessage(boxId, m) {
   box.scrollTop = box.scrollHeight;
 }
 
-// Upload an image file and post it as a message in the given conversation.
-async function sendImage(fileInput, convId) {
+// Upload any file (up to 30 MB) and post it as a message. Images preview inline
+// (image_url); everything else shows as a download link (file_url + file_name).
+const MAX_UPLOAD = 30 * 1024 * 1024;
+
+async function sendAttachment(fileInput, convId) {
   const file = fileInput.files[0];
   if (!file) return;
-  if (!file.type.startsWith('image/')) { alert('Please choose an image file.'); fileInput.value = ''; return; }
-  if (file.size > 5 * 1024 * 1024) { alert('Image must be under 5 MB.'); fileInput.value = ''; return; }
+  if (file.size > MAX_UPLOAD) { alert('Files must be under 30 MB.'); fileInput.value = ''; return; }
 
-  const ext = (file.name.split('.').pop() || 'png').toLowerCase();
-  const path = `${me.id}/${Date.now()}.${ext}`;
-  const { error: upErr } = await supabase.storage.from('chat-images').upload(path, file);
+  const isImage = file.type.startsWith('image/');
+  const bucket = isImage ? 'chat-images' : 'chat-files';
+  // Keep the original extension; make the object name unique + safe.
+  const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80);
+  const path = `${me.id}/${Date.now()}-${safe}`;
+
+  const { error: upErr } = await supabase.storage.from(bucket)
+    .upload(path, file, { contentType: file.type || 'application/octet-stream' });
   if (upErr) { alert(upErr.message); fileInput.value = ''; return; }
 
-  const { data: pub } = supabase.storage.from('chat-images').getPublicUrl(path);
-  const { error } = await supabase.from('messages').insert({
-    conversation_id: convId, sender_id: me.id, image_url: pub.publicUrl,
-  });
+  const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
+  const row = { conversation_id: convId, sender_id: me.id };
+  if (isImage) row.image_url = pub.publicUrl;
+  else { row.file_url = pub.publicUrl; row.file_name = file.name; }
+
+  const { error } = await supabase.from('messages').insert(row);
   if (error) alert(error.message);
   fileInput.value = '';
+}
+
+// ---------------------------------------------------------------------------
+// Emoji picker (used by both composers). Clicking an emoji inserts :name: into
+// the given text input at the cursor.
+// ---------------------------------------------------------------------------
+function wireEmojiPicker(btnId, popId, inputId) {
+  const btn = document.getElementById(btnId);
+  const pop = document.getElementById(popId);
+  const input = document.getElementById(inputId);
+  if (!btn || !pop || !input) return;
+
+  renderEmojiPicker(pop, input);
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    pop.hidden = !pop.hidden;
+  });
+  // close when clicking elsewhere
+  document.addEventListener('click', (e) => {
+    if (!pop.hidden && !pop.contains(e.target) && e.target !== btn) pop.hidden = true;
+  });
+}
+
+function renderEmojiPicker(pop, input) {
+  if (!emojiList.length) {
+    pop.innerHTML = '<p class="emoji-pop-empty">No custom emojis yet' +
+      (me && me.role === 'owner' ? ' — add some in the panel on the right.' : '.') + '</p>';
+    return;
+  }
+  pop.innerHTML = '';
+  emojiList.forEach((em) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.title = ':' + em.name + ':';
+    b.innerHTML = '<img src="' + esc(em.image_url) + '" alt=":' + esc(em.name) + ':">';
+    b.addEventListener('click', () => insertAtCursor(input, ':' + em.name + ':'));
+    pop.appendChild(b);
+  });
+}
+
+function insertAtCursor(input, text) {
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? input.value.length;
+  input.value = input.value.slice(0, start) + text + input.value.slice(end);
+  const caret = start + text.length;
+  input.setSelectionRange(caret, caret);
+  input.focus();
+}
+
+// Refresh every picker on the page (after the owner adds/removes an emoji).
+function refreshEmojiPickers() {
+  [['cust-emoji-pop', 'cust-input'], ['owner-emoji-pop', 'owner-input']].forEach(([popId, inputId]) => {
+    const pop = document.getElementById(popId);
+    const input = document.getElementById(inputId);
+    if (pop && input) renderEmojiPicker(pop, input);
+  });
 }
 
 // ===========================================================================
@@ -213,14 +307,88 @@ async function initOwner() {
     if (error) alert(error.message);
   });
 
-  document.getElementById('owner-image').addEventListener('change', (e) => {
+  document.getElementById('owner-file').addEventListener('change', (e) => {
     if (!activeConv) return;
-    sendImage(e.target, activeConv.id);
+    sendAttachment(e.target, activeConv.id);
   });
+
+  wireEmojiPicker('owner-emoji-btn', 'owner-emoji-pop', 'owner-input');
+  initEmojiManager();
 
   document.getElementById('add-order').addEventListener('click', addOrder);
   document.getElementById('todo-add').addEventListener('submit', addTodo);
   document.getElementById('autoreply-save').addEventListener('click', saveAutoReply);
+}
+
+// ---- Custom emoji manager (owner only) ------------------------------------
+function initEmojiManager() {
+  renderEmojiManage();
+  document.getElementById('emoji-add').addEventListener('submit', addEmoji);
+}
+
+function renderEmojiManage() {
+  const wrap = document.getElementById('emoji-manage');
+  if (!wrap) return;
+  if (!emojiList.length) {
+    wrap.innerHTML = '<p class="hint">No custom emojis yet.</p>';
+    return;
+  }
+  wrap.innerHTML = '';
+  emojiList.forEach((em) => {
+    const chip = document.createElement('div');
+    chip.className = 'emoji-chip';
+    chip.innerHTML =
+      '<img src="' + esc(em.image_url) + '" alt="">' +
+      '<span>:' + esc(em.name) + ':</span>' +
+      '<button type="button" title="Remove">✕</button>';
+    chip.querySelector('button').addEventListener('click', () => removeEmoji(em));
+    wrap.appendChild(chip);
+  });
+}
+
+async function addEmoji(e) {
+  e.preventDefault();
+  const nameInput = document.getElementById('emoji-name');
+  const fileInput = document.getElementById('emoji-file');
+  const msg = document.getElementById('emoji-msg');
+  const setMsg = (t, ok) => { msg.textContent = t; msg.className = 'form-msg ' + (ok ? 'success' : 'error'); };
+
+  const name = nameInput.value.trim().toLowerCase();
+  const file = fileInput.files[0];
+  if (!/^[a-z0-9_]{1,32}$/.test(name)) return setMsg('Name: letters, numbers, or _ (max 32).', false);
+  if (emojiMap[name]) return setMsg('An emoji with that name already exists.', false);
+  if (!file) return setMsg('Please choose an image.', false);
+  if (!file.type.startsWith('image/')) return setMsg('Emoji must be an image.', false);
+  if (file.size > 1024 * 1024) return setMsg('Emoji image must be under 1 MB.', false);
+
+  setMsg('Uploading…', true);
+  const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+  const path = `${name}-${Date.now()}.${ext}`;
+  const { error: upErr } = await supabase.storage.from('chat-emojis')
+    .upload(path, file, { contentType: file.type });
+  if (upErr) return setMsg(upErr.message, false);
+
+  const { data: pub } = supabase.storage.from('chat-emojis').getPublicUrl(path);
+  const { error } = await supabase.from('emojis').insert({ name, image_url: pub.publicUrl });
+  if (error) return setMsg(error.message, false);
+
+  nameInput.value = '';
+  fileInput.value = '';
+  setMsg('Added :' + name + ':', true);
+  setTimeout(() => { msg.textContent = ''; }, 1500);
+
+  await loadEmojis();
+  renderEmojiManage();
+  refreshEmojiPickers();
+}
+
+async function removeEmoji(em) {
+  if (!confirm('Remove :' + em.name + ':?')) return;
+  const { error } = await supabase.from('emojis').delete().eq('id', em.id);
+  if (error) return alert(error.message);
+  await loadEmojis();
+  renderEmojiManage();
+  refreshEmojiPickers();
 }
 
 // ---- Auto-welcome reply (owner-editable) ----------------------------------
