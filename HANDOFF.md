@@ -71,6 +71,21 @@ A public reviews wall where signed-in customers leave a 1–5 star rating + comm
   `vouches` table — until then the wall shows "Couldn't load vouches". (schema.sql
   is idempotent, safe to re-run.)
 
+## NEW: Chat file uploads (30 MB) + custom emojis (added 2026-07-16)
+- **Any-file upload up to 30 MB** in chat. Images still preview inline; other files
+  (.rbxm, .zip, .pdf, docs, etc.) show as a download-link chip with the filename.
+  New `messages.file_url` + `messages.file_name` columns; new public `chat-files`
+  storage bucket (30 MB per-file limit; `chat-images` bumped to 30 MB too).
+- **Custom image emojis (Discord-style).** Owner uploads little images with a
+  `:name:` shortcode in the chat dashboard ("Custom emojis" panel). Anyone signed in
+  can insert them via the 😊 picker button in the composer; `:name:` renders inline
+  as the image. New `emojis` table (owner-only write, everyone reads) + public
+  `chat-emojis` bucket (owner-only upload, 1 MB cap).
+- Files touched: `js/chat.js`, `chat.html`, `css/style.css`, `supabase/schema.sql`.
+- **ACTION REQUIRED:** re-run `supabase/schema.sql` so the new columns, buckets, and
+  `emojis` table exist. Also check **Supabase → Settings → Storage → "Upload file
+  size limit"** is ≥ 30 MB (free-tier default is 50 MB, so usually fine).
+
 ## Resuming on the new machine
 1. Install Claude Code, sign in with the new account.
 2. Clone the repo: `git clone https://github.com/louischoiart-maker/louis-portfolio.git`
