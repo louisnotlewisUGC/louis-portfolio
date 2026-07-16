@@ -31,10 +31,16 @@
       "year": "2026"
     },
     {
-      "image": "assets/work-06.svg",
-      "title": "Hair Name Here",
+      "image": "/assets/portfolio/awdsaaaa.webp",
+      "title": "Stylish Coquette Curls W/ Speech Bubble & Bows",
       "detail": "Detailed & complex",
-      "year": "2025"
+      "year": "2026"
+    },
+    {
+      "image": "/assets/portfolio/awd.webp",
+      "title": "Fashionable Neat Long Pastel Hair",
+      "detail": "Medium detail",
+      "year": "2026"
     }
   ]
 }
