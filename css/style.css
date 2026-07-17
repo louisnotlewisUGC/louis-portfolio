@@ -1072,6 +1072,30 @@ section { padding: 72px 0; }
 }
 .profile-card-close:hover { background: #fff; }
 
+/* ---- message history split: deleted | edited ---- */
+.history-split { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.history-col h4 { font-size: 0.95rem; margin-bottom: 2px; }
+.history-col .hint { margin-bottom: 10px; }
+@media (max-width: 760px) { .history-split { grid-template-columns: 1fr; } }
+.edit-line { font-size: 0.84rem; word-break: break-word; white-space: pre-wrap; margin-top: 3px; }
+.edit-original { color: var(--ink-soft); }
+.edit-now { color: var(--ink); }
+.edit-label {
+  display: inline-block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.4px; margin-right: 7px; padding: 1px 7px; border-radius: 999px;
+}
+.edit-original .edit-label { background: #ffe0e0; color: #c0392b; }
+.edit-now .edit-label { background: #d6f2e3; color: #1e7a4d; }
+
+/* ---- multi-line composer (Enter sends, Shift+Enter = new line) ---- */
+.chat-composer .composer-input {
+  flex: 1; min-width: 0; font-family: var(--font-body); font-size: 1rem;
+  border: 1.5px solid var(--sky-200); border-radius: 20px;
+  padding: 11px 18px; background: var(--sky-050); color: var(--ink);
+  resize: none; max-height: 120px; overflow-y: auto; line-height: 1.4;
+}
+.chat-composer .composer-input:focus { outline: none; border-color: var(--sky-400); background: #fff; }
+
 /* ---- staged attachments (wait in the composer until Send) ---- */
 .attach-strip {
   display: flex; flex-wrap: wrap; gap: 8px; align-items: center;

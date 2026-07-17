@@ -168,6 +168,21 @@ A public reviews wall where signed-in customers leave a 1–5 star rating + comm
 - WHY things "didn't work" on the live site: the last several commits were never
   pushed, and schema.sql wasn't re-run. Both are needed: push latest main AND
   run schema.sql in the Supabase SQL editor.
+- **schema.sql re-run bug FIXED:** the file used to redefine
+  `messages_content_check` three times; the oldest version failed validating
+  existing file-attachment rows (error 23514) and rolled back the entire run.
+  The rule now lives ONCE at the end of the file. User confirmed the run works.
+
+## NEW: edit history + multiline composer (added 2026-07-17)
+- **Edit history:** `messages.original_content` snapshots the wording on the
+  FIRST edit (set by the guard trigger; tamper-proof from the app). The owner
+  Message history section is split in half: **Deleted** (restorable) | **Edited**
+  (Before/Now labels).
+- **Multi-line composer:** both chat inputs are now auto-growing textareas —
+  Enter sends, Shift+Enter makes a new line.
+- **ACTION REQUIRED:** re-run `supabase/schema.sql` once more (adds
+  `original_content` + updated guard trigger). Safe now — see fix above.
+- IMPORTANT: NEVER `git push` — the user always pushes themselves.
 
 ## Resuming on the new machine
 1. Install Claude Code, sign in with the new account.

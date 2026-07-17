@@ -57,7 +57,7 @@
           <button type="button" class="chat-attach chat-emoji-btn" id="cust-emoji-btn" title="Emojis">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4 4 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>
           </button>
-          <input type="text" id="cust-input" maxlength="1000" placeholder="Type your message…" autocomplete="off">
+          <textarea id="cust-input" class="composer-input" rows="1" maxlength="1000" placeholder="Type your message… (Shift+Enter for a new line)"></textarea>
           <button class="btn btn-primary" type="submit">Send</button>
           <div class="emoji-popover" id="cust-emoji-pop" hidden></div>
         </form>
@@ -95,7 +95,7 @@
           <button type="button" class="chat-attach chat-emoji-btn" id="owner-emoji-btn" title="Emojis">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4 4 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>
           </button>
-          <input type="text" id="owner-input" maxlength="1000" placeholder="Reply…" autocomplete="off">
+          <textarea id="owner-input" class="composer-input" rows="1" maxlength="1000" placeholder="Reply… (Shift+Enter for a new line)"></textarea>
           <button class="btn btn-primary" type="submit">Send</button>
           <div class="emoji-popover" id="owner-emoji-pop" hidden></div>
         </form>
@@ -145,10 +145,19 @@
           <h3>Message history</h3>
           <button class="btn btn-soft btn-sm" id="history-toggle" type="button">Hide</button>
         </div>
-        <div id="history-body">
-          <p class="hint">Deleted messages from this chat — only you can see these. You can restore any of them.</p>
-          <div id="owner-history"></div>
-          <p class="hint" id="owner-history-empty">No deleted messages here.</p>
+        <div id="history-body" class="history-split">
+          <div class="history-col">
+            <h4>Deleted messages</h4>
+            <p class="hint">Only you can see these. You can restore any of them.</p>
+            <div id="owner-history"></div>
+            <p class="hint" id="owner-history-empty">No deleted messages here.</p>
+          </div>
+          <div class="history-col">
+            <h4>Edited messages</h4>
+            <p class="hint">What each message said before it was edited.</p>
+            <div id="owner-edits"></div>
+            <p class="hint" id="owner-edits-empty">No edited messages here.</p>
+          </div>
         </div>
       </section>
 

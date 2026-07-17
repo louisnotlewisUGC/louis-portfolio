@@ -146,6 +146,7 @@ async function initCustomer() {
     e.preventDefault();
     handleComposerSubmit(conv.id, input);
   });
+  wireComposerKeys(input, form);
 
   // picking files stages them in the strip — they send with the Send button
   document.getElementById('cust-file').addEventListener('change', (e) =>
@@ -706,6 +707,8 @@ async function initOwner() {
     if (!activeConv) return;
     handleComposerSubmit(activeConv.id, document.getElementById('owner-input'));
   });
+  wireComposerKeys(document.getElementById('owner-input'),
+    document.getElementById('owner-composer'));
 
   // picking files stages them in the strip — they send with the Send button
   document.getElementById('owner-file').addEventListener('change', (e) => {
@@ -722,6 +725,22 @@ async function initOwner() {
   document.getElementById('add-order').addEventListener('click', addOrder);
   document.getElementById('todo-add').addEventListener('submit', addTodo);
   document.getElementById('autoreply-save').addEventListener('click', saveAutoReply);
+}
+
+// Enter sends, Shift+Enter makes a new line; the box grows with the text.
+function wireComposerKeys(input, form) {
+  const grow = () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  };
+  input.addEventListener('input', grow);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      form.requestSubmit();
+      setTimeout(grow, 0); // shrink back after the box is cleared
+    }
+  });
 }
 
 // Hide/Show toggle for a panel section; the choice sticks across visits.
@@ -929,6 +948,33 @@ async function refreshOwner() {
   await attachReactions(visible);
   renderMessages('owner-messages', visible, activeConv.id);
   renderHistory(all.filter((m) => m.deleted_at));
+  renderEdits(all.filter((m) => m.original_content));
+}
+
+// Edited messages: what each one said before its first edit (owner only).
+function renderEdits(edited) {
+  const wrap = document.getElementById('owner-edits');
+  const empty = document.getElementById('owner-edits-empty');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  empty.hidden = edited.length > 0;
+
+  // newest edit first
+  edited.sort((a, b) => new Date(b.edited_at || 0) - new Date(a.edited_at || 0));
+  edited.forEach((m) => {
+    const sender = profileCache[m.sender_id];
+    const who = m.sender_id === me.id ? 'You' : (sender ? sender.username : 'User');
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.innerHTML =
+      '<div class="history-text"><strong>' + esc(who) + '</strong></div>' +
+      '<div class="edit-line edit-original"><span class="edit-label">Before</span>' +
+        renderContent(m.original_content) + '</div>' +
+      '<div class="edit-line edit-now"><span class="edit-label">Now</span>' +
+        (m.content ? renderContent(m.content) : '<em>(deleted)</em>') + '</div>' +
+      '<div class="history-meta">edited · ' + fmtTime(m.edited_at || m.created_at) + '</div>';
+    wrap.appendChild(item);
+  });
 }
 
 function renderHistory(deleted) {

@@ -559,6 +559,8 @@ alter table public.messages add column if not exists edited_at  timestamptz;
 alter table public.messages add column if not exists deleted_at timestamptz;
 alter table public.messages add column if not exists deleted_by uuid references public.profiles(id);
 alter table public.messages add column if not exists pinned     boolean not null default false;
+-- the text as it was BEFORE the first edit (for the owner's edit history)
+alter table public.messages add column if not exists original_content text;
 
 -- Customers no longer see soft-deleted messages; the owner still sees everything.
 drop policy if exists messages_select on public.messages;
@@ -607,7 +609,10 @@ declare
 begin
   -- Trusted admin (SQL editor / service role): stamp edits, allow anything.
   if auth.uid() is null then
-    if new.content is distinct from old.content then new.edited_at := now(); end if;
+    if new.content is distinct from old.content then
+      new.edited_at := now();
+      new.original_content := coalesce(old.original_content, old.content);
+    end if;
     return new;
   end if;
 
@@ -619,10 +624,15 @@ begin
     raise exception 'That field cannot be changed.';
   end if;
 
-  -- Editing text: only your own message.
+  -- Editing text: only your own message. The FIRST edit snapshots the original
+  -- wording into original_content (for the owner's edit history); the app can
+  -- never overwrite that snapshot directly.
   if new.content is distinct from old.content then
     if not is_own then raise exception 'You can only edit your own messages.'; end if;
     new.edited_at := now();
+    new.original_content := coalesce(old.original_content, old.content);
+  else
+    new.original_content := old.original_content;
   end if;
 
   -- Attachments can't be edited.
