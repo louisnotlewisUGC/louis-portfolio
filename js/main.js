@@ -67,6 +67,33 @@ if (lightbox) {
   });
 }
 
+// Pricing: "Request this tier" opens a popup asking how to contact Louis.
+// If they pick the website chat, the tier is remembered so the chat page can
+// pre-fill their first message.
+const tierModal = document.getElementById('tier-modal');
+if (tierModal) {
+  const tierTitle = document.getElementById('tier-modal-title');
+  const chatLink = document.getElementById('tier-chat-link');
+  let currentTier = '';
+
+  document.querySelectorAll('.request-tier').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      currentTier = btn.dataset.tier || '';
+      tierTitle.textContent = currentTier ? 'Request: ' + currentTier : 'Request a commission';
+      tierModal.hidden = false;
+    });
+  });
+
+  chatLink.addEventListener('click', () => {
+    try { localStorage.setItem('requested-tier', currentTier); } catch (e) { /* ignore */ }
+  });
+
+  const closeTierModal = () => { tierModal.hidden = true; };
+  document.getElementById('tier-close').addEventListener('click', closeTierModal);
+  tierModal.addEventListener('click', (e) => { if (e.target === tierModal) closeTierModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTierModal(); });
+}
+
 // Portfolio gallery — render from data/portfolio.json
 const gallery = document.getElementById('gallery');
 

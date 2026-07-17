@@ -153,6 +153,19 @@ async function initCustomer() {
     stageFiles(e.target));
 
   wireEmojiPicker('cust-emoji-btn', 'cust-emoji-pop', 'cust-input');
+
+  // Came from "Request this tier" on the pricing page? Pre-fill their ask.
+  try {
+    const tier = localStorage.getItem('requested-tier');
+    if (tier) {
+      localStorage.removeItem('requested-tier');
+      if (!input.value) {
+        input.value = 'Hi! I\'d like to request the ' + tier + ' tier ✨';
+        input.dispatchEvent(new Event('input')); // let the box grow to fit
+        input.focus({ preventScroll: true });
+      }
+    }
+  } catch (e) { /* ignore */ }
 }
 
 async function refreshCustomer() {

@@ -145,7 +145,7 @@
               <li>3 hair textures </li>
               <li>2 revisions, 2-5 days</li>
             </ul>
-            <a class="btn btn-soft" href="#contact">Request this tier</a>
+            <button class="btn btn-soft request-tier" data-tier="Simple Hair" type="button">Request this tier</button>
           </div>
         </div>
 
@@ -168,7 +168,7 @@
               <li>5 hair textures</li>
               <li>5 revisions, 3-7 days</li>
             </ul>
-            <a class="btn btn-primary" href="#contact">Request this tier</a>
+            <button class="btn btn-primary request-tier" data-tier="Medium Detail Hair" type="button">Request this tier</button>
           </div>
         </div>
 
@@ -190,7 +190,7 @@
               <li>Intense texture detail</li>
               <li>10 revisions included, 5-10 days</li>
             </ul>
-            <a class="btn btn-soft" href="#contact">Request this tier</a>
+            <button class="btn btn-soft request-tier" data-tier="Detailed Hair" type="button">Request this tier</button>
           </div>
         </div>
 
@@ -225,6 +225,25 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/></svg>
     <span class="fab-label">Chat with me</span>
   </a>
+
+  <!-- "Request this tier" popup: choose how to contact Louis -->
+  <div class="tier-modal" id="tier-modal" hidden>
+    <div class="tier-card cloud-card">
+      <button class="tier-close" id="tier-close" aria-label="Close">✕</button>
+      <h3 id="tier-modal-title">Request a commission</h3>
+      <p>How would you like to contact me?</p>
+      <div class="tier-options">
+        <a class="btn btn-primary" id="tier-chat-link" href="chat.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/></svg>
+          Chat with me on the website
+        </a>
+        <a class="btn btn-soft" href="https://discord.gg/icyella" target="_blank" rel="noopener noreferrer">Discord · Icyella</a>
+        <a class="btn btn-soft" href="https://discord.gg/symhb46stD" target="_blank" rel="noopener noreferrer">Commission Server</a>
+        <a class="btn btn-soft" href="https://www.roblox.com/communities/35115132/shopkawaii#!/about" target="_blank" rel="noopener noreferrer">Roblox Group</a>
+      </div>
+      <p class="hint">Website chat uses a free account — you can track your order status there too ✨</p>
+    </div>
+  </div>
 
   <script src="js/main.js"></script>
   <script type="module" src="js/nav-auth.js"></script>

@@ -1132,6 +1132,28 @@ section { padding: 72px 0; }
 .todo-row.pinned { background: var(--cream); border-radius: 10px; padding-left: 8px; padding-right: 8px; }
 .todo-row .msg-pin-tag { font-size: 0.72rem; }
 
+/* ---- "Request this tier" popup (pricing page) ---- */
+.tier-modal {
+  position: fixed; inset: 0; z-index: 120;
+  background: rgba(47, 74, 99, 0.45);
+  display: grid; place-items: center; padding: 20px;
+}
+.tier-card {
+  width: min(400px, 94vw); padding: 30px 28px; position: relative; text-align: center;
+}
+.tier-card:hover { transform: none; box-shadow: var(--shadow-soft); }
+.tier-card h3 { font-size: 1.3rem; margin-bottom: 4px; }
+.tier-card > p { color: var(--ink-soft); margin-bottom: 18px; }
+.tier-options { display: flex; flex-direction: column; gap: 10px; }
+.tier-options .btn { justify-content: center; }
+.tier-close {
+  position: absolute; top: 12px; right: 14px;
+  width: 28px; height: 28px; border: none; border-radius: 999px; cursor: pointer;
+  background: var(--sky-100); color: var(--ink); font-size: 0.85rem;
+}
+.tier-close:hover { background: var(--sky-200); }
+.tier-card .hint { margin-top: 14px; }
+
 /* ---- profile page banner ---- */
 .profile-banner {
   height: 110px; border-radius: 14px; margin-bottom: 6px;
