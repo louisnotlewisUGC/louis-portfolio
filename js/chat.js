@@ -153,6 +153,7 @@ async function initCustomer() {
     stageFiles(e.target));
 
   wireEmojiPicker('cust-emoji-btn', 'cust-emoji-pop', 'cust-input');
+  wireFullscreenBtn(document.getElementById('cust-fs-btn'));
 
   // Came from "Request this tier" on the pricing page? Pre-fill their ask.
   try {
@@ -337,7 +338,43 @@ const ICONS = {
   pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>',
   edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  expand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
+  collapse: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
 };
+
+// ---------------------------------------------------------------------------
+// Fullscreen chat: the ⤢ button in the chat header grows the window to fill
+// the screen; press it again (or Esc) to shrink back.
+// ---------------------------------------------------------------------------
+function wireFullscreenBtn(btn) {
+  if (!btn) return;
+  const win = btn.closest('.chat-window');
+  const paint = () => {
+    const on = win.classList.contains('fullscreen');
+    btn.innerHTML = on ? ICONS.collapse : ICONS.expand;
+    btn.title = on ? 'Exit fullscreen' : 'Fullscreen';
+  };
+  paint();
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation(); // the customer header opens a profile card on click
+    win.classList.toggle('fullscreen');
+    document.body.classList.toggle('chat-fs-open', win.classList.contains('fullscreen'));
+    paint();
+    const box = win.querySelector('.chat-messages');
+    if (box) box.scrollTop = box.scrollHeight;
+  });
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const fs = document.querySelector('.chat-window.fullscreen');
+  if (fs) {
+    fs.classList.remove('fullscreen');
+    document.body.classList.remove('chat-fs-open');
+    const btn = fs.querySelector('.chat-fs-btn');
+    if (btn) { btn.innerHTML = ICONS.expand; btn.title = 'Fullscreen'; }
+  }
+});
 
 // The little hover toolbar on each message.
 function buildMsgActions(m, convId, bubble) {
@@ -918,7 +955,9 @@ async function openConversation(conv) {
       '<button class="btn btn-soft btn-sm" id="pin-btn">' + (conv.pinned ? 'Unpin' : 'Pin') + '</button>' +
       '<button class="btn btn-sm ' + (p.banned ? 'btn-soft' : 'btn-danger') + '" id="ban-btn">' +
         (p.banned ? 'Unban' : 'Ban') + '</button>' +
+      '<button class="chat-fs-btn" id="owner-fs-btn" type="button" title="Fullscreen"></button>' +
     '</div>';
+  wireFullscreenBtn(document.getElementById('owner-fs-btn'));
   document.getElementById('pin-btn').addEventListener('click', () => togglePin(conv));
   document.getElementById('ban-btn').addEventListener('click', () => toggleBan(conv, p));
 

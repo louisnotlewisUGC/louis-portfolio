@@ -191,6 +191,20 @@ A public reviews wall where signed-in customers leave a 1–5 star rating + comm
   `original_content` + updated guard trigger). Safe now — see fix above.
 - IMPORTANT: NEVER `git push` — the user always pushes themselves.
 
+## NEW: fullscreen chat + on-site portfolio manager (added 2026-07-17)
+- **Fullscreen chat:** ⤢ button in both chat headers (customer static HTML;
+  owner injected in openConversation) toggles `.chat-window.fullscreen`
+  (fixed inset 12px, z 100). Esc exits. Z-order: fullscreen 100 < reaction
+  picker 150 < profile modal 160; nav (50) hides underneath.
+- **Portfolio managed on the site** (replaces dead /admin): new `portfolio`
+  table + `portfolio-images` bucket (public read, owner-only write). On
+  portfolio.html the owner sees an "Add a new piece" form (title/detail/year/
+  image ≤10 MB) and ✕ remove buttons on site-uploaded pieces. Rendering moved
+  from main.js to js/portfolio.js, which merges Supabase pieces (newest first)
+  with legacy data/portfolio.json pieces (their root-relative "/assets/..."
+  paths are made relative — they were BROKEN on GitHub Pages).
+- **ACTION REQUIRED:** re-run `supabase/schema.sql` (portfolio table + bucket).
+
 ## Resuming on the new machine
 1. Install Claude Code, sign in with the new account.
 2. Clone the repo: `git clone https://github.com/louisnotlewisUGC/louis-portfolio.git`

@@ -45,9 +45,26 @@
       <p>A collection of my past works and advanced hair designs. Click any piece to take a closer look.</p>
     </section>
 
+    <!-- Owner-only: add pieces right here on the site (saved to Supabase) -->
+    <section class="portfolio-add cloud-card" id="portfolio-add" hidden>
+      <h3>Add a new piece 🎨</h3>
+      <p class="hint">Only you can see this. New pieces go live instantly — no deploy needed.</p>
+      <form id="piece-form">
+        <input type="text" id="piece-title" placeholder="Title (e.g. Cloudy Twin Braids)" maxlength="80" required>
+        <input type="text" id="piece-detail" placeholder="Detail (e.g. Medium detail)" maxlength="60">
+        <input type="text" id="piece-year" placeholder="Year" maxlength="12">
+        <label class="btn btn-soft btn-sm file-btn">Choose image
+          <input type="file" id="piece-file" accept="image/*" hidden>
+        </label>
+        <span class="hint" id="piece-file-name"></span>
+        <button class="btn btn-primary btn-sm" type="submit">Add to portfolio</button>
+      </form>
+      <p class="form-msg" id="piece-msg"></p>
+    </section>
+
     <!-- ================= GALLERY =================
-         Pieces are managed in data/portfolio.json (edited via the /admin
-         panel). js/main.js fetches that file and renders the cards here. -->
+         Pieces come from the Supabase `portfolio` table (owner-managed on the
+         site) plus the legacy data/portfolio.json. Rendered by js/portfolio.js. -->
     <section class="gallery" id="gallery" style="padding-top: 0;">
       <p class="gallery-empty" id="gallery-empty">Loading portfolio…</p>
     </section>
@@ -88,5 +105,6 @@
 
   <script src="js/main.js"></script>
   <script type="module" src="js/nav-auth.js"></script>
+  <script type="module" src="js/portfolio.js"></script>
 </body>
 </html>

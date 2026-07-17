@@ -761,6 +761,54 @@ alter table public.messages add constraint messages_content_check
     )
   );
 
+-- ---------------------------------------------------------------------------
+-- Portfolio pieces managed directly on the website (replaces the /admin CMS,
+-- which died with the Netlify move). Everyone (even signed-out) can view;
+-- only the owner can add/remove. Legacy pieces stay in data/portfolio.json.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.portfolio (
+  id         uuid primary key default gen_random_uuid(),
+  title      text not null check (char_length(title) between 1 and 80),
+  detail     text,
+  year       text,
+  image_url  text not null,
+  created_at timestamptz not null default now()
+);
+
+grant select on public.portfolio to anon, authenticated;
+grant insert, update, delete on public.portfolio to authenticated;
+alter table public.portfolio enable row level security;
+
+drop policy if exists portfolio_read on public.portfolio;
+create policy portfolio_read on public.portfolio
+  for select to anon, authenticated using (true);
+
+drop policy if exists portfolio_owner_write on public.portfolio;
+create policy portfolio_owner_write on public.portfolio
+  for all to authenticated
+  using (public.is_owner()) with check (public.is_owner());
+
+-- Bucket for portfolio images (public read; only the owner uploads/removes).
+insert into storage.buckets (id, name, public)
+values ('portfolio-images', 'portfolio-images', true)
+on conflict (id) do nothing;
+update storage.buckets set file_size_limit = 10485760 where id = 'portfolio-images';
+
+drop policy if exists portfolio_images_read on storage.objects;
+create policy portfolio_images_read on storage.objects
+  for select using (bucket_id = 'portfolio-images');
+
+drop policy if exists portfolio_images_write on storage.objects;
+create policy portfolio_images_write on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'portfolio-images' and public.is_owner());
+
+drop policy if exists portfolio_images_delete on storage.objects;
+create policy portfolio_images_delete on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'portfolio-images' and public.is_owner());
+
 -- ============================================================================
 -- After running this, sign up on your website, then run ONE line to make
 -- yourself the owner (replace the email with the one you signed up with):

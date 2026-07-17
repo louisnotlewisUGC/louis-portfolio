@@ -1002,7 +1002,7 @@ section { padding: 72px 0; }
 
 /* reaction picker popover (appended to body) */
 .reaction-picker {
-  position: absolute; z-index: 60; display: flex; flex-wrap: wrap; gap: 4px;
+  position: absolute; z-index: 150; display: flex; flex-wrap: wrap; gap: 4px;
   max-width: 244px; background: #fff; border: 1px solid var(--sky-200);
   border-radius: 14px; padding: 8px; box-shadow: var(--shadow-hover);
 }
@@ -1043,7 +1043,7 @@ section { padding: 72px 0; }
 
 /* ---- profile card modal ---- */
 .profile-modal {
-  position: fixed; inset: 0; z-index: 120;
+  position: fixed; inset: 0; z-index: 160;
   background: rgba(47, 74, 99, 0.45);
   display: grid; place-items: center; padding: 20px;
 }
@@ -1131,6 +1131,44 @@ section { padding: 72px 0; }
 .todo-pin.is-active { color: var(--peach-deep); }
 .todo-row.pinned { background: var(--cream); border-radius: 10px; padding-left: 8px; padding-right: 8px; }
 .todo-row .msg-pin-tag { font-size: 0.72rem; }
+
+/* ---- fullscreen chat ---- */
+.chat-fs-btn {
+  margin-left: auto; flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  border: none; cursor: pointer; display: grid; place-items: center;
+  background: var(--sky-100); color: var(--sky-500); transition: background 0.2s, color 0.2s;
+}
+.chat-fs-btn:hover { background: var(--sky-200); color: var(--ink); }
+.chat-fs-btn svg { width: 16px; height: 16px; }
+.chat-head-actions .chat-fs-btn { margin-left: 4px; }
+
+.chat-window.fullscreen {
+  position: fixed; inset: 12px; z-index: 100; min-height: 0;
+}
+.chat-window.fullscreen .chat-messages { max-height: none; }
+body.chat-fs-open { overflow: hidden; }
+
+/* ---- portfolio: owner add-piece form + remove buttons ---- */
+.portfolio-add { max-width: 720px; margin: 0 auto 34px; padding: 24px 26px; }
+.portfolio-add:hover { transform: none; box-shadow: var(--shadow-soft); }
+.portfolio-add h3 { margin-bottom: 2px; }
+.portfolio-add form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+.portfolio-add input[type="text"] {
+  flex: 1 1 160px; font-family: var(--font-body); font-size: 0.95rem;
+  border: 1.5px solid var(--sky-200); border-radius: 12px;
+  padding: 10px 14px; background: var(--sky-050); color: var(--ink);
+}
+.portfolio-add input[type="text"]:focus { outline: none; border-color: var(--sky-400); background: #fff; }
+.portfolio-add .form-msg { text-align: left; margin-top: 8px; }
+
+.gallery-item { position: relative; }
+.piece-del {
+  position: absolute; top: 10px; right: 10px; z-index: 3;
+  width: 28px; height: 28px; border: none; border-radius: 999px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.9); color: #c0392b; font-size: 0.85rem;
+  box-shadow: var(--shadow-soft);
+}
+.piece-del:hover { background: #ffe0e0; }
 
 /* ---- "Request this tier" popup (pricing page) ---- */
 .tier-modal {

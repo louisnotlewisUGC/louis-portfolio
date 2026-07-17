@@ -94,46 +94,5 @@ if (tierModal) {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTierModal(); });
 }
 
-// Portfolio gallery — render from data/portfolio.json
-const gallery = document.getElementById('gallery');
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-  ));
-}
-
-if (gallery) {
-  fetch('data/portfolio.json')
-    .then((res) => {
-      if (!res.ok) throw new Error('Could not load portfolio data');
-      return res.json();
-    })
-    .then((data) => {
-      const pieces = (data && data.pieces) || [];
-      gallery.innerHTML = '';
-
-      if (!pieces.length) {
-        gallery.innerHTML = '<p class="gallery-empty">No pieces yet — check back soon.</p>';
-        return;
-      }
-
-      pieces.forEach((piece, i) => {
-        const fig = document.createElement('figure');
-        fig.className = 'gallery-item reveal' + (i % 3 === 1 ? ' reveal-d1' : i % 3 === 2 ? ' reveal-d2' : '');
-
-        const meta = [piece.detail, piece.year].filter(Boolean).join(' · ');
-        fig.innerHTML =
-          '<img src="' + escapeHtml(piece.image) + '" alt="' + escapeHtml(piece.title || 'Hair design') + '">' +
-          '<figcaption><strong>' + escapeHtml(piece.title || '') + '</strong>' +
-          (meta ? '<span>' + escapeHtml(meta) + '</span>' : '') + '</figcaption>';
-
-        if (openLightbox) fig.addEventListener('click', () => openLightbox(fig));
-        gallery.appendChild(fig);
-        observeReveal(fig);
-      });
-    })
-    .catch(() => {
-      gallery.innerHTML = '<p class="gallery-empty">Couldn\'t load the portfolio right now. Please try again later.</p>';
-    });
-}
+// Portfolio gallery rendering lives in js/portfolio.js (it merges the legacy
+// data/portfolio.json pieces with owner-uploaded ones from Supabase).
