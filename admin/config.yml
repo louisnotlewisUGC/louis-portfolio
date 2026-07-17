@@ -5,7 +5,7 @@
 
 backend:
   name: github
-  repo: louischoiart-maker/louis-portfolio   # <-- change this
+  repo: louisnotlewisUGC/louis-portfolio   # <-- change this
   branch: main
 
 # Where uploaded images are stored in the repo, and how the site references them.

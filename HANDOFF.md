@@ -7,7 +7,7 @@ the current state so you don't have to reconstruct the history.
 A cozy, light-blue "anime-home" themed website for **Louis**, a Roblox UGC hair
 creator and verified seller in the Icyella Discord (20k+ members). Plain static
 HTML/CSS/JS (no build step), hosted on **Netlify**, repo
-`louischoiart-maker/louis-portfolio`. A **Supabase** backend powers accounts,
+`louisnotlewisUGC/louis-portfolio`. A **Supabase** backend powers accounts,
 chat, orders, and the owner dashboard.
 
 ## Pages & files
@@ -29,11 +29,11 @@ chat, orders, and the owner dashboard.
 - Setup guides: `SETUP.md` (GitHub + Netlify + CMS), `SETUP-CHAT.md` (Supabase).
 
 ## Deployed services
-- **GitHub**: `louischoiart-maker/louis-portfolio` (main branch).
+- **GitHub**: `louisnotlewisUGC/louis-portfolio` (main branch).
 - **Hosting: migrating Netlify → GitHub Pages (2026-07-17).** Netlify's team ran
   out of build credits mid-cycle and deploys stayed disabled even after refresh,
   so the user chose GitHub Pages (free, no build credits). New URL:
-  `https://louischoiart-maker.github.io/louis-portfolio/`. Redirect URLs in
+  `https://louisnotlewisUGC.github.io/louis-portfolio/`. Redirect URLs in
   `js/account.js` are now sub-path-safe (SITE_BASE). Remaining user steps:
   make repo public, enable Pages (main / root), update Supabase Auth URLs,
   stop Netlify builds. The `/admin` Sveltia CMS relied on Netlify OAuth and
@@ -193,6 +193,6 @@ A public reviews wall where signed-in customers leave a 1–5 star rating + comm
 
 ## Resuming on the new machine
 1. Install Claude Code, sign in with the new account.
-2. Clone the repo: `git clone https://github.com/louischoiart-maker/louis-portfolio.git`
+2. Clone the repo: `git clone https://github.com/louisnotlewisUGC/louis-portfolio.git`
 3. Open the folder in Claude and say: "Read HANDOFF.md and continue." 
 4. To preview locally: `npx serve` in the project folder (or the app's preview).
