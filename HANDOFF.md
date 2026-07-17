@@ -30,7 +30,14 @@ chat, orders, and the owner dashboard.
 
 ## Deployed services
 - **GitHub**: `louischoiart-maker/louis-portfolio` (main branch).
-- **Netlify**: auto-deploys from GitHub main.
+- **Hosting: migrating Netlify → GitHub Pages (2026-07-17).** Netlify's team ran
+  out of build credits mid-cycle and deploys stayed disabled even after refresh,
+  so the user chose GitHub Pages (free, no build credits). New URL:
+  `https://louischoiart-maker.github.io/louis-portfolio/`. Redirect URLs in
+  `js/account.js` are now sub-path-safe (SITE_BASE). Remaining user steps:
+  make repo public, enable Pages (main / root), update Supabase Auth URLs,
+  stop Netlify builds. The `/admin` Sveltia CMS relied on Netlify OAuth and
+  will NOT work on Pages — edit `data/portfolio.json` directly instead.
 - **Supabase**: project ref `jbpvmrshmjxatuzgkqyp`
   (URL `https://jbpvmrshmjxatuzgkqyp.supabase.co`). Auth has email confirmation
   ON. Louis's own account is set to `role = 'owner'` in the `profiles` table.

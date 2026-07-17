@@ -7,6 +7,12 @@ import {
 const authShell = document.getElementById('auth-shell');
 const profileShell = document.getElementById('profile-shell');
 
+// Base URL of the site, kept sub-path-safe so email links work whether the
+// site is hosted at a domain root (Netlify) or a sub-path (GitHub Pages'
+// /louis-portfolio/).
+const SITE_BASE = window.location.origin +
+  window.location.pathname.replace(/[^/]*$/, '');
+
 function show(el) { el.hidden = false; }
 function hide(el) { el.hidden = true; }
 
@@ -64,7 +70,7 @@ signupForm.addEventListener('submit', async (e) => {
     email, password,
     options: {
       data: { username },
-      emailRedirectTo: window.location.origin + '/account.html',
+      emailRedirectTo: SITE_BASE + 'account.html',
     },
   });
 
@@ -105,7 +111,7 @@ document.getElementById('forgot-link').addEventListener('click', async () => {
   const email = signinForm.querySelector('[name="email"]').value.trim();
   if (!email) return setMsg('signin-msg', 'Type your email above first, then click "Forgot".');
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin + '/account.html',
+    redirectTo: SITE_BASE + 'account.html',
   });
   setMsg('signin-msg', error ? error.message
     : 'Password reset link sent — check your email.', error ? 'error' : 'success');
