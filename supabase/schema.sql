@@ -562,18 +562,22 @@ alter table public.messages add column if not exists pinned     boolean not null
 -- the text as it was BEFORE the first edit (for the owner's edit history)
 alter table public.messages add column if not exists original_content text;
 
--- Customers no longer see soft-deleted messages; the owner still sees everything.
+-- Customers don't see OTHERS' soft-deleted messages; the owner sees everything.
+-- A customer must still be able to see their OWN deleted rows: the delete is an
+-- UPDATE whose result the API reads back, so if the row turns invisible to its
+-- author the whole delete fails with an RLS violation. The chat UI hides
+-- deleted messages client-side either way.
 drop policy if exists messages_select on public.messages;
 create policy messages_select on public.messages
   for select to authenticated
   using (
     public.is_owner()
     or (
-      deleted_at is null
-      and exists (
+      exists (
         select 1 from public.conversations c
         where c.id = messages.conversation_id and c.customer_id = auth.uid()
       )
+      and (deleted_at is null or sender_id = auth.uid())
     )
   );
 
