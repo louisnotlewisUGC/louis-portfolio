@@ -1132,6 +1132,23 @@ section { padding: 72px 0; }
 .todo-row.pinned { background: var(--cream); border-radius: 10px; padding-left: 8px; padding-right: 8px; }
 .todo-row .msg-pin-tag { font-size: 0.72rem; }
 
+/* ---- unread badges (owner inbox) ---- */
+.unread-badge {
+  flex-shrink: 0; min-width: 19px; height: 19px; padding: 0 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #e74c3c; color: #fff; border-radius: 999px;
+  font-size: 0.68rem; font-weight: 700; line-height: 1;
+}
+.notif-btn { width: 100%; margin-bottom: 10px; justify-content: center; }
+.fab-badge {
+  position: absolute; bottom: -6px; right: -6px;
+  min-width: 22px; height: 22px; padding: 0 5px;
+  display: grid; place-items: center;
+  background: #e74c3c; color: #fff; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 700; border: 2px solid #fff;
+  box-shadow: var(--shadow-soft);
+}
+
 /* ---- fullscreen chat ---- */
 .chat-fs-btn {
   margin-left: auto; flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;

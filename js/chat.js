@@ -752,6 +752,37 @@ async function initOwner() {
       () => loadConversations())
     .subscribe();
 
+  // inbox: every incoming customer message updates badges; if it isn't for the
+  // open conversation (or the tab is hidden), pop a desktop notification
+  supabase.channel('owner-inbox')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' },
+      (payload) => {
+        const m = payload.new;
+        if (!m || m.sender_id === me.id) return;
+        if (activeConv && m.conversation_id === activeConv.id && !document.hidden) {
+          markConvRead(activeConv);
+        } else {
+          notifyNewMessage(m);
+          loadConversations();
+        }
+      })
+    .subscribe();
+
+  // coming back to the tab counts as reading the open conversation
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && activeConv) markConvRead(activeConv);
+  });
+
+  // one-time permission button for desktop notifications
+  const notifBtn = document.getElementById('notif-btn');
+  if (notifBtn && 'Notification' in window && Notification.permission === 'default') {
+    notifBtn.hidden = false;
+    notifBtn.addEventListener('click', async () => {
+      const res = await Notification.requestPermission();
+      notifBtn.hidden = res !== 'default';
+    });
+  }
+
   document.getElementById('owner-composer').addEventListener('submit', (e) => {
     e.preventDefault();
     if (!activeConv) return;
@@ -898,11 +929,33 @@ async function saveAutoReply() {
 }
 
 let convCache = [];
+let unreadByConv = {}; // conversation id -> unread count (owner inbox)
 
 async function loadConversations() {
   const { data: convs } = await supabase.from('conversations').select('*');
   convCache = convs || [];
   await cacheProfiles(convCache.map((c) => c.customer_id));
+
+  // Unread counts: customer messages newer than owner_last_read_at. Skipped
+  // gracefully if the column isn't in the database yet.
+  unreadByConv = {};
+  const hasReadCol = convCache.length && ('owner_last_read_at' in convCache[0]);
+  if (hasReadCol) {
+    const oldest = convCache.reduce(
+      (a, c) => (a && a < c.owner_last_read_at ? a : c.owner_last_read_at), null);
+    const { data: fresh } = await supabase.from('messages')
+      .select('conversation_id, sender_id, created_at')
+      .gte('created_at', oldest)
+      .is('deleted_at', null)
+      .neq('sender_id', me.id);
+    const lastRead = {};
+    convCache.forEach((c) => { lastRead[c.id] = c.owner_last_read_at; });
+    (fresh || []).forEach((m) => {
+      if (lastRead[m.conversation_id] && m.created_at > lastRead[m.conversation_id]) {
+        unreadByConv[m.conversation_id] = (unreadByConv[m.conversation_id] || 0) + 1;
+      }
+    });
+  }
 
   // pinned first, then most recent activity
   convCache.sort((a, b) => {
@@ -911,6 +964,7 @@ async function loadConversations() {
   });
 
   renderConvList();
+  updateUnreadIndicators();
 }
 
 // Draw the sidebar, applying whatever's typed in the DM search box.
@@ -931,14 +985,78 @@ function renderConvList() {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'conv-item' + (activeConv && activeConv.id === c.id ? ' is-active' : '');
+    const unread = unreadByConv[c.id] || 0;
     item.innerHTML =
       '<img class="conv-avatar" src="' + esc(p.avatar_url || 'assets/avatar.svg') + '" alt="">' +
       '<span class="conv-name">' + esc(p.username || 'User') +
         (p.banned ? ' <span class="ban-tag">banned</span>' : '') + '</span>' +
+      (unread ? '<span class="unread-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
       (c.pinned ? '<span class="pin-dot" title="Pinned">📌</span>' : '');
     item.addEventListener('click', () => openConversation(c));
     wrap.appendChild(item);
   });
+}
+
+// ---- Owner inbox: unread badges, tab icon counter, desktop notifications ----
+const BASE_TITLE = document.title;
+
+// Mark a conversation read: clears its badge and remembers the time.
+async function markConvRead(conv) {
+  if (!conv || !('owner_last_read_at' in conv)) return;
+  const now = new Date().toISOString();
+  conv.owner_last_read_at = now;
+  unreadByConv[conv.id] = 0;
+  renderConvList();
+  updateUnreadIndicators();
+  await supabase.from('conversations')
+    .update({ owner_last_read_at: now }).eq('id', conv.id);
+}
+
+// Tab title "(3) Chat · …" + favicon with a red counter, like Discord.
+function updateUnreadIndicators() {
+  const total = Object.values(unreadByConv).reduce((a, b) => a + b, 0);
+  document.title = (total ? '(' + total + ') ' : '') + BASE_TITLE;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 64; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#8ec9f5';
+  ctx.beginPath(); ctx.arc(32, 32, 30, 0, Math.PI * 2); ctx.fill();
+  ctx.font = '34px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('💬', 32, 34);
+  if (total > 0) {
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath(); ctx.arc(45, 45, 17, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px sans-serif';
+    ctx.fillText(total > 9 ? '9+' : String(total), 45, 47);
+  }
+  let link = document.getElementById('dyn-favicon');
+  if (!link) {
+    link = document.createElement('link');
+    link.id = 'dyn-favicon';
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.href = canvas.toDataURL('image/png');
+}
+
+// Desktop popup for a new customer message (needs the 🔔 permission once).
+async function notifyNewMessage(m) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  await cacheProfiles([m.sender_id]);
+  const who = (profileCache[m.sender_id] || {}).username || 'New message';
+  const body = m.content
+    || ((m.image_urls && m.image_urls.length) ? '📷 sent ' + m.image_urls.length + ' image(s)'
+      : m.image_url ? '📷 sent an image'
+      : m.file_name ? '📎 sent ' + m.file_name
+      : 'sent a message');
+  const n = new Notification('💬 ' + who, { body: String(body).slice(0, 120) });
+  n.onclick = () => {
+    window.focus();
+    const conv = convCache.find((c) => c.id === m.conversation_id);
+    if (conv) openConversation(conv);
+    n.close();
+  };
 }
 
 async function openConversation(conv) {
@@ -985,6 +1103,7 @@ async function openConversation(conv) {
     .subscribe();
 
   await loadOwnerOrders(conv.id);
+  markConvRead(conv);
   // reflect active highlight
   document.querySelectorAll('.conv-item').forEach((el) => el.classList.remove('is-active'));
 }

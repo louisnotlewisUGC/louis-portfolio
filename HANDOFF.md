@@ -205,6 +205,22 @@ A public reviews wall where signed-in customers leave a 1–5 star rating + comm
   paths are made relative — they were BROKEN on GitHub Pages).
 - **ACTION REQUIRED:** re-run `supabase/schema.sql` (portfolio table + bucket).
 
+## NEW: owner inbox unread + notifications (added 2026-07-17)
+- `conversations.owner_last_read_at` (bumped by markConvRead when the owner
+  opens a conversation / returns to the tab). Unread = customer messages newer
+  than it, not deleted.
+- Sidebar: red count badge per conversation. Tab: "(N) Chat · …" title + a
+  canvas-drawn 💬 favicon with a red counter (dyn-favicon link).
+- Desktop notifications via the Notification API: 🔔 "Enable notifications"
+  button (one-time permission) in the sidebar; fires when a customer message
+  arrives for a non-open conversation or a hidden tab; clicking the popup
+  focuses + opens that conversation. LIMIT: only works while the site is open
+  in some tab (no push server on a static site).
+- Owner browsing other pages: nav-auth.js adds a red count badge to the
+  floating "Chat with me" button.
+- Everything degrades gracefully if `owner_last_read_at` is missing.
+- **ACTION REQUIRED:** re-run `supabase/schema.sql` (adds owner_last_read_at).
+
 ## Resuming on the new machine
 1. Install Claude Code, sign in with the new account.
 2. Clone the repo: `git clone https://github.com/louisnotlewisUGC/louis-portfolio.git`

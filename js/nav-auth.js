@@ -1,5 +1,7 @@
 // Updates the nav's auth slot on the landing/portfolio pages:
 // shows "Sign in" when logged out, or an avatar+name chip when logged in.
+// For the owner, the floating "Chat with me" button also gets a red badge
+// with how many customer messages are waiting.
 import { supabase, isConfigured, getProfile } from './supabase-client.js';
 
 const slot = document.getElementById('nav-auth');
@@ -14,9 +16,41 @@ if (slot) {
             '<img src="' + (p.avatar_url || 'assets/avatar.svg') + '" alt="">' +
             (p.username || 'Account') +
           '</a>';
+        if (p.role === 'owner') showOwnerUnreadBadge(p.id);
       } else {
         slot.innerHTML = '<a href="account.html">Sign in</a>';
       }
     });
   }
+}
+
+async function showOwnerUnreadBadge(myId) {
+  const fab = document.querySelector('.chat-fab');
+  if (!fab) return;
+  try {
+    const { data: convs } = await supabase
+      .from('conversations').select('id, owner_last_read_at');
+    if (!convs || !convs.length || !('owner_last_read_at' in convs[0])) return;
+
+    const oldest = convs.reduce(
+      (a, c) => (a && a < c.owner_last_read_at ? a : c.owner_last_read_at), null);
+    const { data: fresh } = await supabase.from('messages')
+      .select('conversation_id, created_at')
+      .gte('created_at', oldest)
+      .is('deleted_at', null)
+      .neq('sender_id', myId);
+
+    const lastRead = {};
+    convs.forEach((c) => { lastRead[c.id] = c.owner_last_read_at; });
+    const total = (fresh || []).filter(
+      (m) => lastRead[m.conversation_id] && m.created_at > lastRead[m.conversation_id]
+    ).length;
+
+    if (total > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'fab-badge';
+      badge.textContent = total > 99 ? '99+' : String(total);
+      fab.appendChild(badge);
+    }
+  } catch (e) { /* badge is best-effort */ }
 }

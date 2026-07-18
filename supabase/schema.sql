@@ -762,6 +762,13 @@ alter table public.messages add constraint messages_content_check
   );
 
 -- ---------------------------------------------------------------------------
+-- Owner inbox unread tracking: when the owner opens a conversation this is
+-- bumped; messages newer than it count as unread (badges + notifications).
+-- ---------------------------------------------------------------------------
+alter table public.conversations
+  add column if not exists owner_last_read_at timestamptz not null default now();
+
+-- ---------------------------------------------------------------------------
 -- Portfolio pieces managed directly on the website (replaces the /admin CMS,
 -- which died with the Netlify move). Everyone (even signed-out) can view;
 -- only the owner can add/remove. Legacy pieces stay in data/portfolio.json.
