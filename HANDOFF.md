@@ -219,7 +219,12 @@ A public reviews wall where signed-in customers leave a 1–5 star rating + comm
 - Owner browsing other pages: nav-auth.js adds a red count badge to the
   floating "Chat with me" button.
 - Everything degrades gracefully if `owner_last_read_at` is missing.
-- **ACTION REQUIRED:** re-run `supabase/schema.sql` (adds owner_last_read_at).
+- **Customer side too:** `conversations.customer_last_read_at` (viewing the chat
+  bumps it; conversations_update policy widened to customers-on-own-row with a
+  guard trigger locking pinned/owner-marker/identity fields). nav-auth.js runs a
+  live FAB badge for BOTH roles (ownerUnreadCount / customerUnreadCount).
+- **ACTION REQUIRED:** re-run `supabase/schema.sql` (adds both read markers,
+  the widened conversations_update policy, and guard_conversation_update).
 
 ## Resuming on the new machine
 1. Install Claude Code, sign in with the new account.

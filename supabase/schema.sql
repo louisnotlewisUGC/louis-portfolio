@@ -762,11 +762,49 @@ alter table public.messages add constraint messages_content_check
   );
 
 -- ---------------------------------------------------------------------------
--- Owner inbox unread tracking: when the owner opens a conversation this is
--- bumped; messages newer than it count as unread (badges + notifications).
+-- Unread tracking, both directions: bumped when each side views the chat;
+-- messages newer than the marker count as unread (badges + notifications).
 -- ---------------------------------------------------------------------------
 alter table public.conversations
   add column if not exists owner_last_read_at timestamptz not null default now();
+alter table public.conversations
+  add column if not exists customer_last_read_at timestamptz not null default now();
+
+-- Customers may now update their own conversation row, but a guard trigger
+-- limits them to bumping their read marker — pin/role fields stay owner-only.
+drop policy if exists conversations_update on public.conversations;
+create policy conversations_update on public.conversations
+  for update to authenticated
+  using (public.is_owner() or customer_id = auth.uid())
+  with check (public.is_owner() or customer_id = auth.uid());
+
+create or replace function public.guard_conversation_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- trusted admin (SQL editor / service role)
+  if auth.uid() is null then return new; end if;
+  if not public.is_owner() then
+    -- customers may only touch customer_last_read_at (and last_message_at,
+    -- which the message trigger bumps during their inserts)
+    if new.customer_id <> old.customer_id
+       or new.created_at <> old.created_at
+       or new.pinned is distinct from old.pinned
+       or new.owner_last_read_at is distinct from old.owner_last_read_at then
+      raise exception 'Only the owner can change that.';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_conversation_update_trg on public.conversations;
+create trigger guard_conversation_update_trg
+  before update on public.conversations
+  for each row execute function public.guard_conversation_update();
 
 -- ---------------------------------------------------------------------------
 -- Portfolio pieces managed directly on the website (replaces the /admin CMS,

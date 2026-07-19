@@ -106,12 +106,24 @@ async function boot() {
 // CUSTOMER VIEW
 // ===========================================================================
 let custConvId = null;
+let custConv = null;
+
+// Customers get an unread badge too ("Chat with me" button on other pages);
+// viewing the chat bumps their read marker so the badge clears.
+async function markCustRead() {
+  if (!custConv || !('customer_last_read_at' in custConv)) return;
+  const now = new Date().toISOString();
+  custConv.customer_last_read_at = now;
+  await supabase.from('conversations')
+    .update({ customer_last_read_at: now }).eq('id', custConv.id);
+}
 
 async function initCustomer() {
   customerView.hidden = false;
   const conv = await ensureConversation();
   if (!conv) return;
   custConvId = conv.id;
+  custConv = conv;
 
   // The chat header shows Louis's REAL profile (avatar updates when he changes
   // his pfp), and clicking it opens his profile card.
@@ -130,15 +142,21 @@ async function initCustomer() {
   await refreshCustomer();
   await loadCustomerOrders(conv.id);
 
-  // live updates: re-render on any message or reaction change
+  // live updates: re-render on any message or reaction change; while the tab
+  // is visible, whatever arrives counts as read
   supabase.channel('cust-msgs-' + conv.id)
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + conv.id },
-      () => refreshCustomer())
+      () => { refreshCustomer(); if (!document.hidden) markCustRead(); })
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'message_reactions' },
       () => refreshCustomer())
     .subscribe();
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) markCustRead();
+  });
+  markCustRead();
 
   const form = document.getElementById('cust-composer');
   const input = document.getElementById('cust-input');
